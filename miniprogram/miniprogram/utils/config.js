@@ -205,12 +205,12 @@ function load() {
     if (raw) {
       const saved = JSON.parse(raw);
       const cfg = parseConfig(saved);
-      // 旧版配置（无 _v）迁移：补上新的默认值
+      // 旧版配置（无 _v）迁移：只补缺失字段的默认值，不覆盖用户已保存的值
       const needsMigration = !saved._v || saved._v < CFG_VERSION;
       if (needsMigration) {
-        cfg.showMonthProgress = true;
-        cfg.salaryEnabled = true;
-        cfg.monthlySalary = 5000;
+        if (typeof saved.showMonthProgress === "undefined") cfg.showMonthProgress = true;
+        if (typeof saved.salaryEnabled === "undefined") cfg.salaryEnabled = true;
+        if (typeof saved.monthlySalary === "undefined" && !(cfg.monthlySalary > 0)) cfg.monthlySalary = 5000;
       }
       cfg._v = CFG_VERSION;
       if (needsMigration) save(cfg);

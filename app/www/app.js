@@ -694,6 +694,40 @@
     clearTimeout(showToast._t);
     showToast._t = setTimeout(() => el.toast.classList.remove("show"), 1800);
   }
+  // 自绘确认弹窗：替代原生 confirm()（WebView 里样式/语言不统一）
+  let confirmOverlay = null;
+  function showConfirm(msg, onOk) {
+    if (!confirmOverlay) {
+      const overlay = document.createElement("div");
+      overlay.className = "qr-overlay";
+      const modal = document.createElement("div");
+      modal.className = "qr-modal";
+      modal.innerHTML =
+        '<div class="qr-modal-title">⚠️ 请确认</div>' +
+        '<div class="confirm-msg"></div>' +
+        '<button class="btn btn-primary confirm-ok" style="margin-top:12px;">确定</button>' +
+        '<button class="btn btn-ghost confirm-cancel" style="margin-top:8px;">取消</button>';
+      overlay.appendChild(modal);
+      overlay.addEventListener("click", function (e) {
+        if (e.target === overlay) overlay.classList.remove("open");
+      });
+      modal.querySelector(".confirm-cancel").addEventListener("click", function () {
+        overlay.classList.remove("open");
+      });
+      document.body.appendChild(overlay);
+      confirmOverlay = overlay;
+    }
+    confirmOverlay.querySelector(".confirm-msg").textContent = msg;
+    // 克隆替换确定按钮，避免叠加多个监听器
+    const oldBtn = confirmOverlay.querySelector(".confirm-ok");
+    const okBtn = oldBtn.cloneNode(false);
+    oldBtn.replaceWith(okBtn);
+    okBtn.addEventListener("click", function () {
+      confirmOverlay.classList.remove("open");
+      if (onOk) onOk();
+    });
+    confirmOverlay.classList.add("open");
+  }
   function getMondayOfWeek(date) {
     const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const day = d.getDay();
@@ -709,9 +743,6 @@
     const anchorIsBig = cfg.bigSmallAnchor.type === "big";
     const sameAsAnchor = ((weeksDiff % 2) + 2) % 2 === 0;
     return sameAsAnchor ? anchorIsBig : !anchorIsBig;
-  }
-  function isLeaveDay(date) {
-    return !!(cfg.leaves && cfg.leaves.hasOwnProperty(ymd(date)));
   }
   // 单日调班/加班覆盖（cfg.dayOverrides[date]）：用户对某天的明确排班意图，
   // 优先于节假日与周模板（含大小周）；请假仍在其上照常扣减。
@@ -852,6 +883,19 @@
     if (infos.length === 1) cfg.leaves[dk] = { reason: infos[0].reason, start: infos[0].start, end: infos[0].end };
     else cfg.leaves[dk] = infos;
     return { ok: true, text: reason + " " + start + "-" + end };
+  }
+  // 删除某天第 idx 条请假；删完最后一条移除该日期键。返回剩余条数（与小程序 removeLeaveEntry 一致）
+  function removeLeaveAt(dk, idx) {
+    if (!cfg.leaves || !cfg.leaves.hasOwnProperty(dk)) return 0;
+    const infos = parseLeaveValue(cfg.leaves[dk]);
+    if (idx >= 0 && idx < infos.length) infos.splice(idx, 1);
+    if (infos.length === 0) delete cfg.leaves[dk];
+    else if (infos.length === 1)
+      cfg.leaves[dk] = infos[0].start
+        ? { reason: infos[0].reason, start: infos[0].start, end: infos[0].end }
+        : infos[0].reason;
+    else cfg.leaves[dk] = infos;
+    return infos.length;
   }
   function setThisWeekType(type) {
     cfg.bigSmallAnchor = { monday: ymd(getMondayOfWeek(new Date())), type: type };
@@ -1146,18 +1190,19 @@
   });
   if (el.holidayResetBtn) {
     el.holidayResetBtn.addEventListener("click", function () {
-      if (!confirm("确定要恢复全部默认法定节假日吗？\n这将撤销你对内置节假日的所有删除和修改，并清除已下载的在线节假日数据。")) return;
-      cfg.deletedBuiltinHolidays = {};
-      if (cfg.holidays)
-        Object.keys(cfg.holidays).forEach(function (k) {
-          if (isPresetHolidayKey(k)) delete cfg.holidays[k];
-        });
-      cfg.remoteHolidays = {};
-      rebuildRemoteHolidays();
-      persist();
-      renderHolidayList();
-      update();
-      showToast("已恢复全部默认法定节假日");
+      showConfirm("确定要恢复全部默认法定节假日吗？\n这将撤销你对内置节假日的所有删除和修改，并清除已下载的在线节假日数据。", function () {
+        cfg.deletedBuiltinHolidays = {};
+        if (cfg.holidays)
+          Object.keys(cfg.holidays).forEach(function (k) {
+            if (isPresetHolidayKey(k)) delete cfg.holidays[k];
+          });
+        cfg.remoteHolidays = {};
+        rebuildRemoteHolidays();
+        persist();
+        renderHolidayList();
+        update();
+        showToast("已恢复全部默认法定节假日");
+      });
     });
   }
 
@@ -1258,15 +1303,7 @@
       btn.addEventListener("click", function () {
         var date = this.dataset.date;
         var idx = parseInt(this.dataset.idx, 10);
-        if (!cfg.leaves || !cfg.leaves.hasOwnProperty(date)) return;
-        var infos = parseLeaveValue(cfg.leaves[date]);
-        if (idx >= 0 && idx < infos.length) infos.splice(idx, 1);
-        if (infos.length === 0) delete cfg.leaves[date];
-        else if (infos.length === 1)
-          cfg.leaves[date] = infos[0].start
-            ? { reason: infos[0].reason, start: infos[0].start, end: infos[0].end }
-            : infos[0].reason;
-        else cfg.leaves[date] = infos;
+        removeLeaveAt(date, idx);
         persist();
         renderLeaveList();
         update();
@@ -1315,12 +1352,13 @@
         showToast("没有请假记录");
         return;
       }
-      if (!confirm("确定要清空全部 " + n + " 条请假记录吗？")) return;
-      cfg.leaves = {};
-      persist();
-      renderLeaveList();
-      update();
-      showToast("已清空全部请假");
+      showConfirm("确定要清空全部 " + n + " 条请假记录吗？", function () {
+        cfg.leaves = {};
+        persist();
+        renderLeaveList();
+        update();
+        showToast("已清空全部请假");
+      });
     });
   }
 
@@ -1603,19 +1641,20 @@
   }
   el.resetBtn.addEventListener("click", () => {
     // 与小程序端语义一致：只恢复默认排班（含单日调班）；节假日、请假、工资等不受影响
-    if (!confirm("确定恢复默认排班吗？\n（节假日、请假、工资等不受影响，单日调班/加班将被清除）")) return;
-    cfg.schedules = defaultSchedules();
-    cfg.mode = "fixed";
-    cfg.bigSmallAnchor = null;
-    cfg.dayOverrides = {};
-    editingDay = new Date().getDay();
-    editingVariant = "big";
-    persist();
-    renderModeUI();
-    renderWeekdayBar();
-    renderDayForm();
-    update();
-    showToast("已恢复默认排班");
+    showConfirm("确定恢复默认排班吗？\n（节假日、请假、工资等不受影响，单日调班/加班将被清除）", function () {
+      cfg.schedules = defaultSchedules();
+      cfg.mode = "fixed";
+      cfg.bigSmallAnchor = null;
+      cfg.dayOverrides = {};
+      editingDay = new Date().getDay();
+      editingVariant = "big";
+      persist();
+      renderModeUI();
+      renderWeekdayBar();
+      renderDayForm();
+      update();
+      showToast("已恢复默认排班");
+    });
   });
 
   // ---------- 导出配置（二维码） ----------
@@ -2448,15 +2487,7 @@
     quickLeaveBox.querySelectorAll(".quick-leave-del").forEach(function (b) {
       b.addEventListener("click", function () {
         var idx = parseInt(this.dataset.idx, 10);
-        if (!cfg.leaves || !cfg.leaves.hasOwnProperty(dk)) return;
-        var infos = parseLeaveValue(cfg.leaves[dk]);
-        if (idx >= 0 && idx < infos.length) infos.splice(idx, 1);
-        if (infos.length === 0) delete cfg.leaves[dk];
-        else if (infos.length === 1)
-          cfg.leaves[dk] = infos[0].start
-            ? { reason: infos[0].reason, start: infos[0].start, end: infos[0].end }
-            : infos[0].reason;
-        else cfg.leaves[dk] = infos;
+        removeLeaveAt(dk, idx);
         persist();
         closeQuickLeave();
         renderLeaveList();

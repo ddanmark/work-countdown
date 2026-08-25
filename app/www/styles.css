@@ -1797,3 +1797,12 @@ body::after  { width: 300px; height: 300px; bottom: -100px; right: -80px; }
     margin: 24px auto;
   }
 }
+
+/* 自绘确认弹窗消息体 */
+.confirm-msg {
+  font-size: 13px;
+  color: var(--text-dim);
+  white-space: pre-line;
+  text-align: left;
+  line-height: 1.6;
+}
