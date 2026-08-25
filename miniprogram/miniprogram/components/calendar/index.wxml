@@ -4,6 +4,7 @@
     <view class="cal-nav" bindtap="prevMonth">◀</view>
     <view class="cal-title">{{monthLabel}}</view>
     <view class="cal-nav" bindtap="nextMonth">▶</view>
+    <view class="cal-nav" bindtap="onStatsTap" title="统计">📊</view>
   </view>
 
   <view class="cal-dow-row">

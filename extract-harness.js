@@ -27,7 +27,7 @@ const factory = new Function(
   `
   let cfg = null;
   ${body.replace(/^  /gm, "")}
-  return { setCfg: (c) => { cfg = c; rebuildRemoteHolidays(); }, cfg: () => cfg, getMondayOfWeek, isWorkDay, isWorkDayIgnoringLeave, isPaidLeaveDay, isFullLeaveDay, leaveInfosOf, computeWeekProgress, computeMonthProgress, computeWeekPaidTime, computeMonthPaidTime, computeMonthStandardTime, totalWorkMs, daySchedule, ymd, getHolidayOverride, isBuiltinHoliday, isPresetHolidayKey, validateRemoteHolidayData, rebuildRemoteHolidays, rangeTime };
+  return { setCfg: (c) => { cfg = c; rebuildRemoteHolidays(); }, cfg: () => cfg, getMondayOfWeek, isWorkDay, isWorkDayIgnoringLeave, isPaidLeaveDay, isFullLeaveDay, leaveInfosOf, computeWeekProgress, computeMonthProgress, computeWeekPaidTime, computeMonthPaidTime, computeMonthStandardTime, totalWorkMs, daySchedule, ymd, getHolidayOverride, isBuiltinHoliday, isPresetHolidayKey, validateRemoteHolidayData, rebuildRemoteHolidays, rangeTime, computeMonthStats, computeYearStats };
   `
 );
 // 注意：注入真实法定节假日数据（与 www/app.js 同源于 holidays.json 生成，

@@ -69,6 +69,7 @@
           <button class="cal-nav" id="calPrevBtn" aria-label="上一月">◀</button>
           <div class="cal-title" id="calMonthLabel">—</div>
           <button class="cal-nav" id="calNextBtn" aria-label="下一月">▶</button>
+          <button class="cal-nav" id="calStatsBtn" title="统计" aria-label="统计">📊</button>
         </div>
         <div class="cal-grid" id="calGrid"></div>
         <div class="cal-legend">
@@ -309,6 +310,20 @@
   </div>
 
   <div class="toast" id="toast"></div>
+
+  <!-- 统计弹窗 -->
+  <div class="qr-overlay" id="statsOverlay">
+    <div class="qr-modal">
+      <div class="qr-modal-title" id="statsTitle">📊 统计</div>
+      <div class="stats-nav">
+        <button class="cal-nav" id="statsPrevBtn" aria-label="上一月">◀</button>
+        <div class="stats-nav-label" id="statsMonthLabel">—</div>
+        <button class="cal-nav" id="statsNextBtn" aria-label="下一月">▶</button>
+      </div>
+      <div class="stats-body" id="statsBody"></div>
+      <button class="btn btn-ghost" id="statsClose" style="margin-top:10px;">关闭</button>
+    </div>
+  </div>
 
   <!-- QR 导出弹窗 -->
   <div class="qr-overlay" id="qrExportOverlay">

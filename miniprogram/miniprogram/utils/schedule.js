@@ -428,6 +428,61 @@ function computeMonthStandardTime(cfg, now) {
   return totalMs;
 }
 
+// ---------- 统计（月/年汇总，纯展示口径；与安卓端 computeRangeStats 一致） ----------
+// "本该上班"的基础判定（不含调班与请假）：统计分类用
+function statsBaseWorkDay(cfg, d) {
+  var override = getHolidayOverride(cfg, d);
+  if (override === "workday") return true;
+  if (override === "holiday") return false;
+  var idx = d.getDay();
+  var sch = cfg.schedules[idx];
+  if (!sch) return false;
+  if (cfg.mode === "bigSmall" && idx === 6) return isBigWeek(cfg, d) && !!sch.workStart && !!sch.workEnd;
+  return !!sch.enabled;
+}
+// overtimeDays=本不该上班却调班上班的天数；offDays=调休休息天数；leaveByReason=按原因的全天假天数
+function computeRangeStats(cfg, from, days, now) {
+  var todayKey = ymd(now);
+  var workDays = 0, pastWorkDays = 0, futureWorkDays = 0, leaveDays = 0, overtimeDays = 0, offDays = 0;
+  var leaveByReason = {};
+  var d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  for (var i = 0; i < days; i++) {
+    var dk = ymd(d);
+    var dov = dayOverrideOf(cfg, d);
+    var due = isWorkDayIgnoringLeave(cfg, d);
+    if (dov && !dov.off && !statsBaseWorkDay(cfg, d)) overtimeDays++;
+    if (dov && dov.off) offDays++;
+    if (due) {
+      workDays++;
+      if (dk < todayKey) pastWorkDays++;
+      else futureWorkDays++;
+      if (isFullLeaveDay(cfg, d)) {
+        leaveDays++;
+        var r = normalizeLeaveReason(leaveReasonOf(cfg, d)) || "其他";
+        leaveByReason[r] = (leaveByReason[r] || 0) + 1;
+      }
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  var rt = rangeTime(cfg, now, new Date(from.getFullYear(), from.getMonth(), from.getDate()), days, false);
+  return {
+    workDays: workDays, pastWorkDays: pastWorkDays, futureWorkDays: futureWorkDays,
+    leaveDays: leaveDays, leaveByReason: leaveByReason, overtimeDays: overtimeDays, offDays: offDays,
+    totalMs: rt.totalMs, doneMs: rt.doneMs,
+  };
+}
+function computeMonthStats(cfg, now, y, m) {
+  var year = y == null ? now.getFullYear() : y;
+  var month = m == null ? now.getMonth() : m;
+  var days = new Date(year, month + 1, 0).getDate();
+  return computeRangeStats(cfg, new Date(year, month, 1), days, now);
+}
+function computeYearStats(cfg, now) {
+  var y = now.getFullYear();
+  var days = (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? 366 : 365;
+  return computeRangeStats(cfg, new Date(y, 0, 1), days, now);
+}
+
 module.exports = {
   WEEK_ORDER, WEEK_LABEL, WEEK_FULL,
   ymd, toDate,
@@ -438,4 +493,5 @@ module.exports = {
   isWorkDay, daySchedule, cloneDayTimes, dayTimesEqual,
   netWorkMs, totalWorkMs, currentBreak, findNextBreak, findNextWorkStart,
   computeWeekProgress, computeMonthProgress, computeWeekPaidTime, computeMonthPaidTime, computeMonthStandardTime, rangeTime,
+  computeMonthStats, computeYearStats,
 };

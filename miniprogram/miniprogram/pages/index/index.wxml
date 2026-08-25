@@ -58,7 +58,7 @@
     <rich-text wx:if="{{subInfo}}" class="sub-info" style="color:rgba(255,255,255,0.8);" nodes="{{subInfo}}"></rich-text>
   </view>
 
-  <calendar cfg="{{cfg}}" id="cal" bind:quickleave="onQuickLeave" bind:dayoverride="onDayOverride"></calendar>
+  <calendar cfg="{{cfg}}" id="cal" bind:quickleave="onQuickLeave" bind:dayoverride="onDayOverride" bind:stats="onStats"></calendar>
 
   <!-- 月历双击日期：快速请假 -->
   <view class="ql-overlay" wx:if="{{qlOpen}}" bindtap="qlClose">
@@ -107,6 +107,17 @@
       </view>
       <view wx:if="{{doHas}}" class="ql-del" data-act="clear" bindtap="doPick">🗑️ 清除调班（恢复常规）</view>
       <view class="ql-cancel" bindtap="doClose">取消</view>
+    </view>
+  </view>
+
+  <!-- 📊 统计弹窗 -->
+  <view class="ql-overlay" wx:if="{{stOpen}}" bindtap="stClose">
+    <view class="ql-box" catchtap="noop">
+      <view class="ql-title">📊 {{stTitle}}</view>
+      <view class="st-row" wx:for="{{stRows}}" wx:key="index"><text>{{item[0]}}</text><text class="st-val">{{item[1]}}</text></view>
+      <view class="st-sub">🗓️ 年累计</view>
+      <view class="st-row" wx:for="{{stYearRows}}" wx:key="index"><text>{{item[0]}}</text><text class="st-val">{{item[1]}}</text></view>
+      <view class="ql-cancel" bindtap="stClose">关闭</view>
     </view>
   </view>
 

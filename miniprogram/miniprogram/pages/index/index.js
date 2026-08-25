@@ -328,4 +328,42 @@ Page({
     wx.showToast({ title: msg, icon: "none" });
   },
   doClose() { this.setData({ doOpen: false }); },
+
+  // ---------- 📊 统计（跟随月历当前显示月份） ----------
+  onStats(e) {
+    const cfg = app.getConfig();
+    const now = new Date();
+    const y = e.detail.year, m = e.detail.month;
+    const ms = sched.computeMonthStats(cfg, now, y, m);
+    const ys = sched.computeYearStats(cfg, now);
+    const fmtH = (v) => (v / 3600000).toFixed(1) + "h";
+    const leaveTxt = (by) => {
+      const ks = Object.keys(by);
+      return ks.length ? ks.map((k) => k + " " + by[k] + " 天").join(" · ") : "0 天";
+    };
+    const rows = [
+      ["📅 应上工作日", ms.workDays + " 天"],
+      ["✅ 已完成工时", fmtH(ms.doneMs) + " / " + fmtH(ms.totalMs)],
+      ["📝 全天请假", leaveTxt(ms.leaveByReason)],
+      ["⏰ 调班上班", ms.overtimeDays + " 天"],
+      ["😴 调休休息", ms.offDays + " 天"],
+    ];
+    if (cfg.salaryEnabled && cfg.monthlySalary > 0) {
+      const days = new Date(y, m + 1, 0).getDate();
+      const moP = sched.rangeTime(cfg, now, new Date(y, m, 1), days, true);
+      const moStd = sched.computeMonthStandardTime(cfg, new Date(y, m, 15));
+      if (moStd > 0) {
+        const earned = Math.max(0, moP.totalMs - moP.futureWorkMs) * cfg.monthlySalary / moStd;
+        rows.push(["💰 本月已赚（确定到手）", "¥" + (earned >= 100000 ? Math.round(earned) : earned.toFixed(2))]);
+      }
+    }
+    const yrows = [
+      ["应上 / 已过工作日", ys.workDays + " / " + ys.pastWorkDays + " 天"],
+      ["已完成工时", fmtH(ys.doneMs) + " / " + fmtH(ys.totalMs)],
+      ["全年请假", leaveTxt(ys.leaveByReason)],
+      ["调班上班 / 调休休息", ys.overtimeDays + " / " + ys.offDays + " 天"],
+    ];
+    this.setData({ stOpen: true, stTitle: y + "年" + (m + 1) + "月 统计", stRows: rows, stYearRows: yrows });
+  },
+  stClose() { this.setData({ stOpen: false }); },
 });

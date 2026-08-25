@@ -131,6 +131,16 @@ function buildCases() {
     workDayChecks: [["2026-08-29", true]],
   });
 
+  // L. 统计口径：事假+年假各1天、周六调班上班、周三调休休息
+  cases.push({
+    name: "L 统计口径",
+    config: baseCfg({
+      leaves: { "2026-08-25": "事假", "2026-08-26": "年假" },
+      dayOverrides: { "2026-08-29": { workStart: "10:00", workEnd: "15:00", breaks: [] }, "2026-08-27": { off: true } },
+    }),
+    now: "2026-08-24T10:00:00",
+  });
+
   return cases;
 }
 
@@ -148,6 +158,7 @@ function computeAll(impl, cfg, nowStr) {
     r.weekPaid = api.rangeTime(now, monday, 7, true);
     r.monthPaid = api.rangeTime(now, monthFirst, monthDays, true);
     r.monthStd = { totalMs: api.computeMonthStandardTime(now) };
+    r.stats = api.computeMonthStats(now);
     r.workDay = (d) => api.isWorkDay(new Date(d + "T10:00:00"));
   } else {
     const monday = sched.getMondayOfWeek(now);
@@ -156,6 +167,7 @@ function computeAll(impl, cfg, nowStr) {
     r.weekPaid = sched.rangeTime(cfg, now, monday, 7, true);
     r.monthPaid = sched.rangeTime(cfg, now, monthFirst, monthDays, true);
     r.monthStd = { totalMs: sched.computeMonthStandardTime(cfg, now) };
+    r.stats = sched.computeMonthStats(cfg, now);
     r.workDay = (d) => sched.isWorkDay(cfg, new Date(d + "T10:00:00"));
   }
   return r;
@@ -174,6 +186,13 @@ if (UPDATE) {
       weekPaid: pickRange(r.weekPaid), monthPaid: pickRange(r.monthPaid),
       monthStd: r.monthStd.totalMs,
     };
+    if (c.name.indexOf("统计") >= 0) {
+      expect.stats = {
+        workDays: r.stats.workDays, pastWorkDays: r.stats.pastWorkDays, leaveDays: r.stats.leaveDays,
+        leaveByReason: r.stats.leaveByReason, overtimeDays: r.stats.overtimeDays, offDays: r.stats.offDays,
+        totalMs: r.stats.totalMs, doneMs: r.stats.doneMs,
+      };
+    }
     if (c.workDayChecks) expect.workDay = c.workDayChecks.map(([d]) => r.workDay(d));
     return Object.assign({}, c, { expect });
   });
@@ -208,6 +227,12 @@ for (const impl of ["www", "mp"]) {
     check(pre + " weekPaid", eqArr(pickRange(r.weekPaid), e.weekPaid));
     check(pre + " monthPaid", eqArr(pickRange(r.monthPaid), e.monthPaid));
     check(pre + " monthStd", r.monthStd.totalMs === e.monthStd);
+    if (e.stats) {
+      const okStat = Object.keys(e.stats).every((k) =>
+        typeof e.stats[k] === "object" ? JSON.stringify(r.stats[k]) === JSON.stringify(e.stats[k]) : r.stats[k] === e.stats[k]
+      );
+      check(pre + " stats", okStat);
+    }
     if (e.workDay) e.workDay.forEach((want, i) => check(pre + " isWorkDay " + c.workDayChecks[i][0] + "=" + want, r.workDay(c.workDayChecks[i][0]) === want));
   }
 }

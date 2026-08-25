@@ -211,6 +211,14 @@
     holidayResetBtn: document.getElementById("holidayResetBtn"),
     holidayUpdateBtn: document.getElementById("holidayUpdateBtn"),
     holidayOnlineStatus: document.getElementById("holidayOnlineStatus"),
+    calStatsBtn: document.getElementById("calStatsBtn"),
+    statsOverlay: document.getElementById("statsOverlay"),
+    statsTitle: document.getElementById("statsTitle"),
+    statsMonthLabel: document.getElementById("statsMonthLabel"),
+    statsBody: document.getElementById("statsBody"),
+    statsPrevBtn: document.getElementById("statsPrevBtn"),
+    statsNextBtn: document.getElementById("statsNextBtn"),
+    statsClose: document.getElementById("statsClose"),
     leaveDateInput: document.getElementById("leaveDateInput"),
     leaveReasonInput: document.getElementById("leaveReasonInput"),
     leaveAllDayCheck: document.getElementById("leaveAllDayCheck"),
@@ -2132,6 +2140,61 @@
     }
     return { totalMs, doneMs, futureWorkMs };
   }
+
+  // ---------- 统计（月/年汇总，纯展示口径，不参与倒计时/工资判定） ----------
+  // "本该上班"的基础判定（不含调班与请假）：统计分类用
+  function statsBaseWorkDay(d) {
+    var override = getHolidayOverride(d);
+    if (override === "workday") return true;
+    if (override === "holiday") return false;
+    var idx = d.getDay();
+    var sch = cfg.schedules[idx];
+    if (!sch) return false;
+    if (cfg.mode === "bigSmall" && idx === 6) return isBigWeek(d) && !!sch.workStart && !!sch.workEnd;
+    return !!sch.enabled;
+  }
+  // overtimeDays=本不该上班却调班上班的天数；offDays=调休休息天数；leaveByReason=按原因的全天假天数
+  function computeRangeStats(from, days, now) {
+    var todayKey = ymd(now);
+    var workDays = 0, pastWorkDays = 0, futureWorkDays = 0, leaveDays = 0, overtimeDays = 0, offDays = 0;
+    var leaveByReason = {};
+    var d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    for (var i = 0; i < days; i++) {
+      var dk = ymd(d);
+      var dov = dayOverrideOf(d);
+      var due = isWorkDayIgnoringLeave(d); // 已含调班判定
+      if (dov && !dov.off && !statsBaseWorkDay(d)) overtimeDays++;
+      if (dov && dov.off) offDays++;
+      if (due) {
+        workDays++;
+        if (dk < todayKey) pastWorkDays++;
+        else futureWorkDays++;
+        if (isFullLeaveDay(d)) {
+          leaveDays++;
+          var r = normalizeLeaveReason(leaveReasonOf(d)) || "其他";
+          leaveByReason[r] = (leaveByReason[r] || 0) + 1;
+        }
+      }
+      d.setDate(d.getDate() + 1);
+    }
+    var rt = rangeTime(now, new Date(from.getFullYear(), from.getMonth(), from.getDate()), days, false);
+    return {
+      workDays: workDays, pastWorkDays: pastWorkDays, futureWorkDays: futureWorkDays,
+      leaveDays: leaveDays, leaveByReason: leaveByReason, overtimeDays: overtimeDays, offDays: offDays,
+      totalMs: rt.totalMs, doneMs: rt.doneMs,
+    };
+  }
+  function computeMonthStats(now, y, m) {
+    var year = y == null ? now.getFullYear() : y;
+    var month = m == null ? now.getMonth() : m;
+    var days = new Date(year, month + 1, 0).getDate();
+    return computeRangeStats(new Date(year, month, 1), days, now);
+  }
+  function computeYearStats(now) {
+    var y = now.getFullYear();
+    var days = (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? 366 : 365;
+    return computeRangeStats(new Date(y, 0, 1), days, now);
+  }
   function pctOf(r) {
     return r.totalMs > 0 ? Math.min(100, Math.max(0, (r.doneMs / r.totalMs) * 100)) : 0;
   }
@@ -2462,6 +2525,79 @@
   function closeDayOverride() {
     if (dayOvPop) dayOvPop.classList.remove("open");
   }
+
+  // ---------- 统计面板 ----------
+  // 展示口径：天数/工时与主页面同源（rangeTime 工时口径）；金额为工资口径（带薪假即时视为已赚）
+  let statsYear = new Date().getFullYear(), statsMonth = new Date().getMonth();
+  function statsFmtH(ms) {
+    return (ms / 3600000).toFixed(1) + "h";
+  }
+  function statsLeaveText(byReason) {
+    const keys = Object.keys(byReason);
+    if (!keys.length) return "0 天";
+    return keys.map(function (k) { return k + " " + byReason[k] + " 天"; }).join(" · ");
+  }
+  function renderStatsPanel() {
+    const now = new Date();
+    const m = computeMonthStats(now, statsYear, statsMonth);
+    const y = computeYearStats(now);
+    let html = "";
+    html += '<div class="stats-row"><span>📅 应上工作日</span><b>' + m.workDays + " 天</b></div>";
+    html += '<div class="stats-row"><span>✅ 已完成工时</span><b>' + statsFmtH(m.doneMs) + " / " + statsFmtH(m.totalMs) + "</b></div>";
+    html += '<div class="stats-row"><span>📝 全天请假</span><b>' + statsLeaveText(m.leaveByReason) + "</b></div>";
+    html += '<div class="stats-row"><span>⏰ 调班上班</span><b>' + m.overtimeDays + " 天</b></div>";
+    html += '<div class="stats-row"><span>😴 调休休息</span><b>' + m.offDays + " 天</b></div>";
+    if (cfg.salaryEnabled && cfg.monthlySalary > 0) {
+      const days = new Date(statsYear, statsMonth + 1, 0).getDate();
+      const moP = rangeTime(now, new Date(statsYear, statsMonth, 1), days, true);
+      const moStd = computeMonthStandardTime(new Date(statsYear, statsMonth, 15));
+      if (moStd > 0) {
+        const earned = Math.max(0, moP.totalMs - moP.futureWorkMs) * cfg.monthlySalary / moStd;
+        html += '<div class="stats-row"><span>💰 本月已赚（确定到手）</span><b>¥' + (earned >= 100000 ? Math.round(earned) : earned.toFixed(2)) + "</b></div>";
+      }
+    }
+    html += '<div class="stats-sub">🗓️ ' + now.getFullYear() + " 年累计</div>";
+    html += '<div class="stats-row"><span>应上 / 已过工作日</span><b>' + y.workDays + " / " + y.pastWorkDays + " 天</b></div>";
+    html += '<div class="stats-row"><span>已完成工时</span><b>' + statsFmtH(y.doneMs) + " / " + statsFmtH(y.totalMs) + "</b></div>";
+    html += '<div class="stats-row"><span>全年请假</span><b>' + statsLeaveText(y.leaveByReason) + "</b></div>";
+    html += '<div class="stats-row"><span>调班上班 / 调休休息</span><b>' + y.overtimeDays + " / " + y.offDays + " 天</b></div>";
+    el.statsBody.innerHTML = html;
+    el.statsMonthLabel.textContent = statsYear + "年" + (statsMonth + 1) + "月";
+  }
+  function openStatsPanel() {
+    // 统计默认跟随月历当前显示的月份，之后面板内可独立翻月
+    statsYear = calYear;
+    statsMonth = calMonth;
+    renderStatsPanel();
+    el.statsOverlay.classList.add("open");
+  }
+  if (el.calStatsBtn) el.calStatsBtn.addEventListener("click", openStatsPanel);
+  if (el.statsClose)
+    el.statsClose.addEventListener("click", function () {
+      el.statsOverlay.classList.remove("open");
+    });
+  if (el.statsOverlay)
+    el.statsOverlay.addEventListener("click", function (e) {
+      if (e.target === el.statsOverlay) el.statsOverlay.classList.remove("open");
+    });
+  if (el.statsPrevBtn)
+    el.statsPrevBtn.addEventListener("click", function () {
+      statsMonth--;
+      if (statsMonth < 0) {
+        statsMonth = 11;
+        statsYear--;
+      }
+      renderStatsPanel();
+    });
+  if (el.statsNextBtn)
+    el.statsNextBtn.addEventListener("click", function () {
+      statsMonth++;
+      if (statsMonth > 11) {
+        statsMonth = 0;
+        statsYear++;
+      }
+      renderStatsPanel();
+    });
 
   function renderCalendar() {
     if (!el.calGrid) return;

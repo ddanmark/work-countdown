@@ -138,5 +138,10 @@ Component({
       if (!cell || !cell.inMonth) return;
       this.triggerEvent("dayoverride", { dateKey: cell.dateKey });
     },
+
+    // 📊 统计：抛给父页面（统计当前显示月份）
+    onStatsTap() {
+      this.triggerEvent("stats", { year: this.calYear, month: this.calMonth });
+    },
   },
 });
