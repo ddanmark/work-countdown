@@ -35,7 +35,11 @@
   // 数据源为仓库 holidays.json 的 raw 链接，抓取后存入 cfg.remoteHolidays（结构与 holidays.json 的 years 一致）。
   // 优先级：用户自定义 > 已删除内置 > 在线数据 > 内置编译数据（在线数据可修正内置同日数据）。
   // 注意：remoteHolidays 不参与导出/导入（可随时重新在线获取，避免撑大二维码），导入配置后需重新在线更新。
+  // 数据源：原生端走 Gitee raw（CapacitorHttp 不受 CORS 限制，国内可达性最好）；
+  // 浏览器（PWA 网页版）走 GitHub raw（响应带 Access-Control-Allow-Origin:*，
+  // Gitee raw 不带、直连会被 CORS 拦），失败再回退 Gitee。
   const HOLIDAY_FEED_URL = "https://gitee.com/Nasblance/work-countdown/raw/main/holidays.json";
+  const HOLIDAY_FEED_URL_GH = "https://raw.githubusercontent.com/ddanmark/work-countdown/main/holidays.json";
   let REMOTE_HOLIDAYS = {}; // date -> "holiday" | "workday"
   let REMOTE_CATEGORIES = {}; // date -> 组名
   let REMOTE_YEARS = []; // 已加载年份（显示用）
@@ -1220,17 +1224,23 @@
     el.holidayOnlineStatus.textContent = txt;
     el.holidayOnlineStatus.classList.toggle("holiday-online-warn", missing);
   }
+  function fetchText(url) {
+    return fetch(url, { cache: "no-cache" }).then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.text();
+    });
+  }
   function requestHolidayFeed() {
-    // 原生端走 CapacitorHttp 绕过 CORS；网页/调试环境回退 fetch
+    // 原生端走 CapacitorHttp 绕过 CORS；网页/调试环境按 CORS 友好度依次尝试
     var cap = window.Capacitor;
-    if (cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins && cap.Plugins.CapacitorHttp) {
+    var isNative = !!(cap && cap.isNativePlatform && cap.isNativePlatform());
+    if (isNative && cap.Plugins && cap.Plugins.CapacitorHttp) {
       return cap.Plugins.CapacitorHttp.get({ url: HOLIDAY_FEED_URL, headers: { "Cache-Control": "no-cache" } }).then(function (res) {
         return typeof res.data === "string" ? res.data : JSON.stringify(res.data);
       });
     }
-    return fetch(HOLIDAY_FEED_URL, { cache: "no-cache" }).then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.text();
+    return fetchText(HOLIDAY_FEED_URL_GH).catch(function () {
+      return fetchText(HOLIDAY_FEED_URL);
     });
   }
   if (el.holidayUpdateBtn) {
