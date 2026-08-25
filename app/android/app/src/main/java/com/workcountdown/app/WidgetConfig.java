@@ -79,20 +79,24 @@ public class WidgetConfig {
         return 0;
     }
 
-    // ---------- 2026 法定节假日 / 调休（与前端 HOLIDAY_GROUPS 完全一致） ----------
     private static final java.util.Map<String, String> BUILTIN_HOLIDAYS = new java.util.HashMap<>();
+// @holidays-gen:begin —— 本段由 tools/gen-holidays.js 从 holidays.json 生成，勿手改
+    // ---------- 法定节假日 / 调休（2026）与前端 HOLIDAY_GROUPS 同源生成 ----------
     static {
+        // ---- 2026 ----
         // 元旦
         putHolidays("2026-01-01", "2026-01-02", "2026-01-03");
         putWorkdays("2026-01-04");
         // 春节
-        putHolidays("2026-02-15", "2026-02-16", "2026-02-17", "2026-02-18",
-                "2026-02-19", "2026-02-20", "2026-02-21", "2026-02-22", "2026-02-23");
+        putHolidays("2026-02-15", "2026-02-16", "2026-02-17",
+                "2026-02-18", "2026-02-19", "2026-02-20",
+                "2026-02-21", "2026-02-22", "2026-02-23");
         putWorkdays("2026-02-14", "2026-02-28");
         // 清明
         putHolidays("2026-04-05", "2026-04-06", "2026-04-07");
         // 劳动节
-        putHolidays("2026-05-01", "2026-05-02", "2026-05-03", "2026-05-04", "2026-05-05");
+        putHolidays("2026-05-01", "2026-05-02", "2026-05-03",
+                "2026-05-04", "2026-05-05");
         putWorkdays("2026-05-09");
         // 端午
         putHolidays("2026-06-19", "2026-06-20", "2026-06-21");
@@ -103,6 +107,7 @@ public class WidgetConfig {
                 "2026-10-05", "2026-10-06", "2026-10-07");
         putWorkdays("2026-09-20", "2026-10-10");
     }
+// @holidays-gen:end
     private static void putHolidays(String... ds) { for (String d : ds) BUILTIN_HOLIDAYS.put(d, "holiday"); }
     private static void putWorkdays(String... ds) { for (String d : ds) BUILTIN_HOLIDAYS.put(d, "workday"); }
 
