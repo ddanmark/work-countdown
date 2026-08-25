@@ -27,6 +27,20 @@ public class MainActivity extends BridgeActivity {
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         super.onCreate(savedInstanceState);
         applyEdgeToEdge();
+        requestNotificationPermissionIfNeeded();
+    }
+
+    /** 下班前提醒需要系统通知（Android 13+/API 33 需运行时授权），启动时请求一次 */
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            try {
+                if (checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                        != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    androidx.core.app.ActivityCompat.requestPermissions(this,
+                            new String[]{"android.permission.POST_NOTIFICATIONS"}, 1001);
+                }
+            } catch (Throwable ignored) { }
+        }
     }
 
     @Override

@@ -117,6 +117,9 @@ public class WorkCountdownWidgetProvider extends AppWidgetProvider {
         int totalUpdated = 0;
         TickData data = computeTickData(context);
 
+        // 下班前提醒：走 widget 的秒级 tick 链（后台）+ MainActivity 焦点刷新（前台）
+        maybeFireOffworkReminder(context, data);
+
         // 1) small widget 实例
         ComponentName smallCn = new ComponentName(context, WorkCountdownWidgetProvider.class);
         for (int id : awm.getAppWidgetIds(smallCn)) {
@@ -275,13 +278,78 @@ public class WorkCountdownWidgetProvider extends AppWidgetProvider {
         context.sendBroadcast(intent);
     }
 
+    // ---------- 下班前提醒（系统通知） ----------
+    // 配置 offworkReminder=提前分钟数（0=关，前端设置页开关）。
+    // 触发链：本 Provider 的每秒 tick（后台，需桌面有小组件）+
+    // MainActivity.onWindowFocusChanged 的 REFRESH 广播（App 前台）。
+    // 每天只发一次（独立 SharedPreferences 记已发日期）；无通知权限时静默跳过。
+    private static final String STATE_PREFS = "work-countdown-state";
+    private static final String REMINDER_FIRED_KEY = "offwork-reminder-fired";
+    private static final int REMINDER_NOTIF_ID = 2001;
+
+    private static void maybeFireOffworkReminder(Context context, TickData data) {
+        try {
+            JSONObject config = data.config;
+            if (config == null) return;
+            int minutes = config.optInt("offworkReminder", 0);
+            if (minutes <= 0 || minutes > 240) return;
+            WidgetConfig.Status s = data.status;
+            // 只在"工作中"判距下班倒计时（before/break 状态的 todayRemainMs 指上班/休息结束，语义不同）
+            if (!"working".equals(s.label)) return;
+            long remain = s.todayRemainMs;
+            if (remain <= 0 || remain > minutes * 60000L) return;
+            String todayKey = WidgetConfig.ymd(Calendar.getInstance());
+            android.content.SharedPreferences st =
+                    context.getSharedPreferences(STATE_PREFS, Context.MODE_PRIVATE);
+            if (todayKey.equals(st.getString(REMINDER_FIRED_KEY, null))) return;
+            st.edit().putString(REMINDER_FIRED_KEY, todayKey).apply();
+            fireOffworkNotification(context, minutes, remain);
+        } catch (Throwable ignored) { }
+    }
+
+    private static void fireOffworkNotification(Context context, int minutes, long remainMs) {
+        android.app.NotificationManager nm =
+                (android.app.NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (nm == null) return;
+        // Android 13+ 未授权时静默跳过（授权请求在 MainActivity 启动时发起）
+        if (Build.VERSION.SDK_INT >= 33 &&
+                context.checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                        != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        String chId = "offwork-reminder";
+        if (Build.VERSION.SDK_INT >= 26) {
+            android.app.NotificationChannel ch =
+                    new android.app.NotificationChannel(chId, "下班提醒", android.app.NotificationManager.IMPORTANCE_HIGH);
+            nm.createNotificationChannel(ch);
+        }
+        Intent open = new Intent(context, MainActivity.class);
+        open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pi = PendingIntent.getActivity(context, 0, open,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        long showMin = Math.max(1, (remainMs + 59999) / 60000); // 向上取整，避免"还有0分钟"
+        android.app.Notification.Builder nb = Build.VERSION.SDK_INT >= 26
+                ? new android.app.Notification.Builder(context, chId)
+                : new android.app.Notification.Builder(context);
+        android.app.Notification n = nb
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("快下班啦 🎉")
+                .setContentText("还有约 " + showMin + " 分钟下班，收拾收拾准备跑路 🏃")
+                .setContentIntent(pi)
+                .setAutoCancel(true)
+                .build();
+        nm.notify(REMINDER_NOTIF_ID, n);
+    }
+
     /** 每轮 tick 只算一次、所有实例共享的数据（配置 JSON + 状态 + 配色） */
     private static class TickData {
         final WidgetConfig.Status status;
         final int paletteIdx;
-        TickData(WidgetConfig.Status status, int paletteIdx) {
+        final JSONObject config; // 可为 null（配置读取失败时）
+        TickData(WidgetConfig.Status status, int paletteIdx, JSONObject config) {
             this.status = status;
             this.paletteIdx = paletteIdx;
+            this.config = config;
         }
     }
 
@@ -306,7 +374,7 @@ public class WorkCountdownWidgetProvider extends AppWidgetProvider {
         try {
             paletteIdx = WidgetConfig.loadBgPaletteIdx(context);
         } catch (Throwable ignored) { }
-        return new TickData(status, paletteIdx);
+        return new TickData(status, paletteIdx, config);
     }
 
     private static WidgetConfig.Status placeholderStatus() {

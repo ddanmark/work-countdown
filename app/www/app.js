@@ -230,6 +230,9 @@
     leaveClearBtn: document.getElementById("leaveClearBtn"),
     showMonthProgressCheck: document.getElementById("showMonthProgressCheck"),
     salaryEnabledCheck: document.getElementById("salaryEnabledCheck"),
+    offworkReminderCheck: document.getElementById("offworkReminderCheck"),
+    offworkReminderRow: document.getElementById("offworkReminderRow"),
+    offworkMinSelect: document.getElementById("offworkMinSelect"),
     salaryConfig: document.getElementById("salaryConfig"),
     monthlySalaryInput: document.getElementById("monthlySalaryInput"),
     monthWrap: document.getElementById("monthWrap"),
@@ -301,9 +304,10 @@
         showMonthProgress: !!saved.showMonthProgress,
         salaryEnabled: !!saved.salaryEnabled,
         monthlySalary: typeof saved.monthlySalary === "number" && isFinite(saved.monthlySalary) && saved.monthlySalary >= 0 ? saved.monthlySalary : 0,
+        offworkReminder: typeof saved.offworkReminder === "number" && isFinite(saved.offworkReminder) && saved.offworkReminder > 0 ? Math.min(240, Math.round(saved.offworkReminder)) : 0,
       };
     }
-    return { schedules: defaultSchedules(), mode: "fixed", bigSmallAnchor: null, holidays: {}, deletedBuiltinHolidays: {}, remoteHolidays: {}, dayOverrides: {}, leaves: {}, showMonthProgress: false, salaryEnabled: false, monthlySalary: 0 };
+    return { schedules: defaultSchedules(), mode: "fixed", bigSmallAnchor: null, holidays: {}, deletedBuiltinHolidays: {}, remoteHolidays: {}, dayOverrides: {}, leaves: {}, showMonthProgress: false, salaryEnabled: false, monthlySalary: 0, offworkReminder: 0 };
   }
 
   // ---------- 配置压缩/解压 ----------
@@ -374,6 +378,7 @@
     if (cfg.showMonthProgress) other.mp = 1;
     if (cfg.salaryEnabled) other.se = 1;
     if (cfg.monthlySalary > 0) other.ms = cfg.monthlySalary;
+    if (cfg.offworkReminder > 0) other.rem = cfg.offworkReminder;
     if (Object.keys(other).length > 0) out.o = other;
     return out;
   }
@@ -394,6 +399,7 @@
       out.showMonthProgress = !!compact.o.mp;
       out.salaryEnabled = !!compact.o.se;
       out.monthlySalary = typeof compact.o.ms === "number" && compact.o.ms >= 0 ? compact.o.ms : 0;
+      out.offworkReminder = typeof compact.o.rem === "number" && compact.o.rem > 0 ? Math.min(240, Math.round(compact.o.rem)) : 0;
     }
     return out;
   }
@@ -1325,7 +1331,30 @@
     el.salaryEnabledCheck.checked = !!cfg.salaryEnabled;
     el.salaryConfig.style.display = cfg.salaryEnabled ? "block" : "none";
     el.monthlySalaryInput.value = cfg.monthlySalary > 0 ? cfg.monthlySalary : "";
+    if (el.offworkReminderCheck) {
+      el.offworkReminderCheck.checked = cfg.offworkReminder > 0;
+      el.offworkReminderRow.style.display = cfg.offworkReminder > 0 ? "block" : "none";
+      var m = cfg.offworkReminder > 0 ? cfg.offworkReminder : 30;
+      el.offworkMinSelect.value = String(m);
+      // 同步自定义下拉显示（custom-select 监听 change 同步，这里手动触发一次）
+      el.offworkMinSelect.dispatchEvent(new Event("change"));
+    }
   }
+  if (el.offworkReminderCheck)
+    el.offworkReminderCheck.addEventListener("change", function () {
+      cfg.offworkReminder = this.checked ? Number(el.offworkMinSelect.value) || 30 : 0;
+      persist();
+      renderOtherSettings();
+      showToast(this.checked ? "已开启下班提醒（提前 " + cfg.offworkReminder + " 分钟）" : "已关闭下班提醒");
+    });
+  if (el.offworkMinSelect)
+    el.offworkMinSelect.addEventListener("change", function () {
+      if (cfg.offworkReminder > 0) {
+        cfg.offworkReminder = Number(this.value) || 30;
+        persist();
+        showToast("已改为提前 " + cfg.offworkReminder + " 分钟提醒");
+      }
+    });
   el.showMonthProgressCheck.addEventListener("change", function () {
     cfg.showMonthProgress = this.checked;
     persist();
@@ -1878,6 +1907,7 @@
       cfg.showMonthProgress = !!validated.showMonthProgress;
       cfg.salaryEnabled = !!validated.salaryEnabled;
       cfg.monthlySalary = validated.monthlySalary || 0;
+      cfg.offworkReminder = validated.offworkReminder || 0;
       // remoteHolidays 不随导入覆盖（可在线重新获取），保持本机现有在线数据
       persist();
       renderModeUI();
@@ -2796,6 +2826,7 @@
       cfg.showMonthProgress = !!next.showMonthProgress;
       cfg.salaryEnabled = !!next.salaryEnabled;
       cfg.monthlySalary = next.monthlySalary || 0;
+      cfg.offworkReminder = next.offworkReminder || 0;
       cfg.remoteHolidays = next.remoteHolidays || {};
       rebuildRemoteHolidays();
       renderModeUI();

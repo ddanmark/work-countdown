@@ -280,6 +280,46 @@
       </div>
 
       <div class="section">
+        <div class="section-title">🔔 下班提醒</div>
+        <div class="workday-toggle" style="margin-bottom:0">
+          <span>下班前提醒我</span>
+          <label class="switch">
+            <input type="checkbox" id="offworkReminderCheck">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div id="offworkReminderRow" style="display:none; margin-top:10px;">
+          <div class="holiday-add-row">
+            <div class="custom-select-wrapper" id="offworkMinWrapper">
+              <select id="offworkMinSelect" class="holiday-type-select" style="display:none">
+                <option value="5">提前 5 分钟</option>
+                <option value="10">提前 10 分钟</option>
+                <option value="15">提前 15 分钟</option>
+                <option value="20">提前 20 分钟</option>
+                <option value="30">提前 30 分钟</option>
+                <option value="45">提前 45 分钟</option>
+                <option value="60">提前 60 分钟</option>
+              </select>
+              <div class="custom-select-trigger" id="offworkMinTrigger">
+                <span class="custom-select-value" id="offworkMinDisplay">提前 30 分钟</span>
+                <span class="custom-select-arrow">▾</span>
+              </div>
+              <div class="custom-select-dropdown" id="offworkMinDropdown">
+                <div class="custom-option" data-value="5">提前 5 分钟</div>
+                <div class="custom-option" data-value="10">提前 10 分钟</div>
+                <div class="custom-option" data-value="15">提前 15 分钟</div>
+                <div class="custom-option" data-value="20">提前 20 分钟</div>
+                <div class="custom-option" data-value="30">提前 30 分钟</div>
+                <div class="custom-option" data-value="45">提前 45 分钟</div>
+                <div class="custom-option" data-value="60">提前 60 分钟</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="duration-hint">通过系统通知提醒，每天只提醒一次；调班/加班日按当天实际下班时间。<br>后台提醒依赖桌面小组件的刷新链（需添加任一小组件），App 打开时也会检查。首次使用会请求通知权限。</p>
+      </div>
+
+      <div class="section">
         <div class="section-title">💰 工资显示</div>
         <div class="workday-toggle">
           <span>开启工资显示</span>

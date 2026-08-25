@@ -85,4 +85,6 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- 开机重启后恢复 widget 的每秒刷新链 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 下班前提醒通知（Android 13+ 需运行时授权，MainActivity 启动时请求） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

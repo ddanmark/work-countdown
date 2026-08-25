@@ -95,6 +95,8 @@ function parseConfig(saved) {
       showMonthProgress: !!saved.showMonthProgress,
       salaryEnabled: !!saved.salaryEnabled,
       monthlySalary: (typeof saved.monthlySalary === "number" && isFinite(saved.monthlySalary) && saved.monthlySalary >= 0) ? saved.monthlySalary : 0,
+      // 安卓端"下班前提醒"提前分钟数；小程序无通知能力，仅存储透传保证导入导出不丢
+      offworkReminder: (typeof saved.offworkReminder === "number" && isFinite(saved.offworkReminder) && saved.offworkReminder > 0) ? Math.min(240, Math.round(saved.offworkReminder)) : 0,
     };
   }
   return defaultConfig();
@@ -169,6 +171,7 @@ function compactConfig(cfg) {
   if (cfg.showMonthProgress) other.mp = 1;
   if (cfg.salaryEnabled) other.se = 1;
   if (cfg.monthlySalary > 0) other.ms = cfg.monthlySalary;
+  if (cfg.offworkReminder > 0) other.rem = cfg.offworkReminder;
   if (Object.keys(other).length > 0) out.o = other;
   return out;
 }
@@ -190,6 +193,7 @@ function expandConfig(compact) {
     out.showMonthProgress = !!compact.o.mp;
     out.salaryEnabled = !!compact.o.se;
     out.monthlySalary = (typeof compact.o.ms === "number" && compact.o.ms >= 0) ? compact.o.ms : 0;
+    out.offworkReminder = (typeof compact.o.rem === "number" && compact.o.rem > 0) ? Math.min(240, Math.round(compact.o.rem)) : 0;
   }
   return out;
 }

@@ -111,7 +111,7 @@ public class WidgetConfig {
     private static void putHolidays(String... ds) { for (String d : ds) BUILTIN_HOLIDAYS.put(d, "holiday"); }
     private static void putWorkdays(String... ds) { for (String d : ds) BUILTIN_HOLIDAYS.put(d, "workday"); }
 
-    private static String ymd(Calendar d) {
+    static String ymd(Calendar d) {
         return String.format(java.util.Locale.US, "%04d-%02d-%02d",
                 d.get(Calendar.YEAR), d.get(Calendar.MONTH) + 1, d.get(Calendar.DAY_OF_MONTH));
     }
@@ -201,7 +201,8 @@ public class WidgetConfig {
         if (arr != null && arr.length() > 0) {
             day.breaks = new String[arr.length()][3];
             for (int i = 0; i < arr.length(); i++) {
-                JSONObject b = arr.getJSONObject(i);
+                JSONObject b = arr.optJSONObject(i);
+                if (b == null) continue;
                 day.breaks[i][0] = b.optString("name", "休息" + (i + 1));
                 day.breaks[i][1] = b.optString("start", "12:00");
                 day.breaks[i][2] = b.optString("end", "13:00");
