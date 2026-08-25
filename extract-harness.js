@@ -27,7 +27,9 @@ const factory = new Function(
   `
   let cfg = null;
   ${body.replace(/^  /gm, "")}
-  return { setCfg: (c) => { cfg = c; rebuildRemoteHolidays(); }, cfg: () => cfg, getMondayOfWeek, isWorkDay, isWorkDayIgnoringLeave, isPaidLeaveDay, isFullLeaveDay, leaveInfosOf, computeWeekProgress, computeMonthProgress, computeWeekPaidTime, computeMonthPaidTime, computeMonthStandardTime, totalWorkMs, daySchedule, ymd, getHolidayOverride, isBuiltinHoliday, isPresetHolidayKey, validateRemoteHolidayData, rebuildRemoteHolidays };
+  return { setCfg: (c) => { cfg = c; rebuildRemoteHolidays(); }, cfg: () => cfg, getMondayOfWeek, isWorkDay, isWorkDayIgnoringLeave, isPaidLeaveDay, isFullLeaveDay, leaveInfosOf, computeWeekProgress, computeMonthProgress, computeWeekPaidTime, computeMonthPaidTime, computeMonthStandardTime, totalWorkMs, daySchedule, ymd, getHolidayOverride, isBuiltinHoliday, isPresetHolidayKey, validateRemoteHolidayData, rebuildRemoteHolidays, rangeTime };
   `
 );
-module.exports = factory([]);
+// 注意：注入真实法定节假日数据（与 www/app.js 同源于 holidays.json 生成，
+// 取小程序端 holidays.js 保证单一来源）；早期测试用空表，依赖八月无法定假的巧合
+module.exports = factory(require("./miniprogram/miniprogram/utils/holidays.js").HOLIDAY_GROUPS);

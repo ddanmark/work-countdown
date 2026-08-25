@@ -419,5 +419,5 @@ module.exports = {
   getMondayOfWeek, isBigWeek, setThisWeekType,
   isWorkDay, daySchedule, cloneDayTimes, dayTimesEqual,
   netWorkMs, totalWorkMs, currentBreak, findNextBreak, findNextWorkStart,
-  computeWeekProgress, computeMonthProgress, computeWeekPaidTime, computeMonthPaidTime, computeMonthStandardTime,
+  computeWeekProgress, computeMonthProgress, computeWeekPaidTime, computeMonthPaidTime, computeMonthStandardTime, rangeTime,
 };

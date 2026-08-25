@@ -1,0 +1,1088 @@
+{
+  "comment": "黄金向量：期望值以 www app.js 为基准生成（--update），Java/小程序实现必须一致。时间均为本地时区。",
+  "cases": [
+    {
+      "name": "A 基线无请假",
+      "config": {
+        "mode": "fixed",
+        "bigSmallAnchor": null,
+        "holidays": {},
+        "deletedBuiltinHolidays": {},
+        "remoteHolidays": {},
+        "leaves": {},
+        "schedules": {
+          "0": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          },
+          "1": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "2": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "3": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "4": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "5": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "6": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          }
+        }
+      },
+      "now": "2026-08-24T10:00:00",
+      "expect": {
+        "week": [
+          144000000,
+          3600000,
+          140400000
+        ],
+        "month": [
+          604800000,
+          435600000,
+          169200000
+        ],
+        "weekPaid": [
+          144000000,
+          3600000,
+          140400000
+        ],
+        "monthPaid": [
+          604800000,
+          435600000,
+          169200000
+        ],
+        "monthStd": 604800000
+      }
+    },
+    {
+      "name": "B 事假3天",
+      "config": {
+        "mode": "fixed",
+        "bigSmallAnchor": null,
+        "holidays": {},
+        "deletedBuiltinHolidays": {},
+        "remoteHolidays": {},
+        "leaves": {
+          "2026-08-25": "事假",
+          "2026-08-26": "事假",
+          "2026-08-27": "事假"
+        },
+        "schedules": {
+          "0": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          },
+          "1": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "2": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "3": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "4": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "5": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "6": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          }
+        }
+      },
+      "now": "2026-08-24T10:00:00",
+      "expect": {
+        "week": [
+          57600000,
+          3600000,
+          54000000
+        ],
+        "month": [
+          518400000,
+          435600000,
+          82800000
+        ],
+        "weekPaid": [
+          57600000,
+          3600000,
+          54000000
+        ],
+        "monthPaid": [
+          518400000,
+          435600000,
+          82800000
+        ],
+        "monthStd": 604800000
+      }
+    },
+    {
+      "name": "C 年假3天(带薪)",
+      "config": {
+        "mode": "fixed",
+        "bigSmallAnchor": null,
+        "holidays": {},
+        "deletedBuiltinHolidays": {},
+        "remoteHolidays": {},
+        "leaves": {
+          "2026-08-25": "🌴 年假",
+          "2026-08-26": "年假",
+          "2026-08-27": "年假"
+        },
+        "schedules": {
+          "0": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          },
+          "1": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "2": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "3": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "4": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "5": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "6": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          }
+        }
+      },
+      "now": "2026-08-24T10:00:00",
+      "expect": {
+        "week": [
+          57600000,
+          3600000,
+          54000000
+        ],
+        "month": [
+          518400000,
+          435600000,
+          82800000
+        ],
+        "weekPaid": [
+          144000000,
+          3600000,
+          54000000
+        ],
+        "monthPaid": [
+          604800000,
+          435600000,
+          82800000
+        ],
+        "monthStd": 604800000
+      }
+    },
+    {
+      "name": "D 时段假两段",
+      "config": {
+        "mode": "fixed",
+        "bigSmallAnchor": null,
+        "holidays": {},
+        "deletedBuiltinHolidays": {},
+        "remoteHolidays": {},
+        "leaves": {
+          "2026-08-25": [
+            {
+              "reason": "事假",
+              "start": "10:00",
+              "end": "12:00"
+            },
+            {
+              "reason": "病假",
+              "start": "13:30",
+              "end": "15:00"
+            }
+          ]
+        },
+        "schedules": {
+          "0": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          },
+          "1": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "2": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "3": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "4": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "5": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "6": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          }
+        }
+      },
+      "now": "2026-08-24T10:00:00",
+      "expect": {
+        "week": [
+          131400000,
+          3600000,
+          127800000
+        ],
+        "month": [
+          592200000,
+          435600000,
+          156600000
+        ],
+        "weekPaid": [
+          131400000,
+          3600000,
+          127800000
+        ],
+        "monthPaid": [
+          592200000,
+          435600000,
+          156600000
+        ],
+        "monthStd": 604800000
+      }
+    },
+    {
+      "name": "E 大小周小周覆盖",
+      "config": {
+        "mode": "bigSmall",
+        "bigSmallAnchor": {
+          "monday": "2026-08-24",
+          "type": "big"
+        },
+        "holidays": {},
+        "deletedBuiltinHolidays": {},
+        "remoteHolidays": {},
+        "leaves": {},
+        "schedules": {
+          "0": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          },
+          "1": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "2": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "3": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ],
+            "small": {
+              "workStart": "10:00",
+              "workEnd": "16:00",
+              "breaks": []
+            }
+          },
+          "4": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "5": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "6": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          }
+        }
+      },
+      "now": "2026-08-31T10:00:00",
+      "expect": {
+        "week": [
+          136800000,
+          3600000,
+          133200000
+        ],
+        "month": [
+          676800000,
+          651600000,
+          25200000
+        ],
+        "weekPaid": [
+          136800000,
+          3600000,
+          133200000
+        ],
+        "monthPaid": [
+          676800000,
+          651600000,
+          25200000
+        ],
+        "monthStd": 676800000
+      }
+    },
+    {
+      "name": "F 国庆周",
+      "config": {
+        "mode": "fixed",
+        "bigSmallAnchor": null,
+        "holidays": {},
+        "deletedBuiltinHolidays": {},
+        "remoteHolidays": {},
+        "leaves": {},
+        "schedules": {
+          "0": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          },
+          "1": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "2": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "3": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "4": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "5": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "6": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          }
+        }
+      },
+      "now": "2026-09-28T10:00:00",
+      "expect": {
+        "week": [
+          86400000,
+          3600000,
+          82800000
+        ],
+        "month": [
+          637200000,
+          554400000,
+          82800000
+        ],
+        "weekPaid": [
+          86400000,
+          3600000,
+          82800000
+        ],
+        "monthPaid": [
+          637200000,
+          554400000,
+          82800000
+        ],
+        "monthStd": 637200000
+      }
+    },
+    {
+      "name": "F2 十月整月",
+      "config": {
+        "mode": "fixed",
+        "bigSmallAnchor": null,
+        "holidays": {},
+        "deletedBuiltinHolidays": {},
+        "remoteHolidays": {},
+        "leaves": {},
+        "schedules": {
+          "0": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          },
+          "1": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "2": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "3": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "4": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "5": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "6": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          }
+        }
+      },
+      "now": "2026-10-15T10:00:00",
+      "expect": {
+        "week": [
+          144000000,
+          90000000,
+          54000000
+        ],
+        "month": [
+          522000000,
+          180000000,
+          342000000
+        ],
+        "weekPaid": [
+          144000000,
+          90000000,
+          54000000
+        ],
+        "monthPaid": [
+          522000000,
+          180000000,
+          342000000
+        ],
+        "monthStd": 522000000
+      }
+    },
+    {
+      "name": "G 2027春节remote链",
+      "config": {
+        "mode": "fixed",
+        "bigSmallAnchor": null,
+        "holidays": {
+          "2027-02-12": "holiday"
+        },
+        "deletedBuiltinHolidays": {
+          "2027-01-30": true
+        },
+        "remoteHolidays": {
+          "2027": [
+            {
+              "name": "春节",
+              "holidays": [
+                "2027-02-05",
+                "2027-02-06",
+                "2027-02-08",
+                "2027-02-09",
+                "2027-02-10",
+                "2027-02-11"
+              ],
+              "workdays": [
+                "2027-01-30",
+                "2027-02-20"
+              ]
+            }
+          ]
+        },
+        "leaves": {},
+        "schedules": {
+          "0": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          },
+          "1": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "2": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "3": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "4": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "5": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "6": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          }
+        }
+      },
+      "now": "2027-02-10T10:00:00",
+      "workDayChecks": [
+        [
+          "2027-02-08",
+          false
+        ],
+        [
+          "2027-02-12",
+          false
+        ],
+        [
+          "2027-01-30",
+          false
+        ],
+        [
+          "2027-02-20",
+          true
+        ]
+      ],
+      "expect": {
+        "week": [
+          0,
+          0,
+          0
+        ],
+        "month": [
+          435600000,
+          115200000,
+          320400000
+        ],
+        "weekPaid": [
+          0,
+          0,
+          0
+        ],
+        "monthPaid": [
+          435600000,
+          115200000,
+          320400000
+        ],
+        "monthStd": 435600000,
+        "workDay": [
+          false,
+          false,
+          false,
+          true
+        ]
+      }
+    },
+    {
+      "name": "H 删除内置10/1",
+      "config": {
+        "mode": "fixed",
+        "bigSmallAnchor": null,
+        "holidays": {},
+        "deletedBuiltinHolidays": {
+          "2026-10-01": true
+        },
+        "remoteHolidays": {},
+        "leaves": {},
+        "schedules": {
+          "0": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          },
+          "1": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "2": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "3": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "4": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "5": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "6": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          }
+        }
+      },
+      "now": "2026-10-15T10:00:00",
+      "workDayChecks": [
+        [
+          "2026-10-01",
+          true
+        ],
+        [
+          "2026-10-02",
+          false
+        ],
+        [
+          "2026-10-10",
+          true
+        ]
+      ],
+      "expect": {
+        "week": [
+          144000000,
+          90000000,
+          54000000
+        ],
+        "month": [
+          550800000,
+          208800000,
+          342000000
+        ],
+        "weekPaid": [
+          144000000,
+          90000000,
+          54000000
+        ],
+        "monthPaid": [
+          550800000,
+          208800000,
+          342000000
+        ],
+        "monthStd": 550800000,
+        "workDay": [
+          true,
+          false,
+          true
+        ]
+      }
+    }
+  ]
+}

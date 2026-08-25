@@ -25,3 +25,6 @@ miniprogram/project.private.config.json
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Java 黄金向量测试的编译产物（json.jar 保留入库以便开箱即测）
+tools/vendor/classes/
