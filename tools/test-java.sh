@@ -13,10 +13,13 @@ OUT="$ROOT/tools/vendor/classes"
 [ -f "$JSON_JAR" ] || { echo "缺少 $JSON_JAR（见脚本头部注释下载）"; exit 1; }
 [ -f "$ANDROID_JAR" ] || { echo "缺少 $ANDROID_JAR"; exit 1; }
 mkdir -p "$OUT"
-# Git Bash(MSYS) 会吞掉分号 classpath，Windows 路径需显式转换；非 MSYS 环境原样使用
-W() { if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else echo "$1"; fi; }
-CP="$(W "$OUT");$(W "$JSON_JAR");$(W "$ANDROID_JAR")"
+# 跨平台：Windows/MSYS 用分号分隔并转混合路径（C:/...，正斜杠 java 也认）；Linux 用冒号
+UNAME="$(uname -s)"
+SEP=":"
+case "$UNAME" in MINGW*|MSYS*|CYGWIN*) SEP=";";; esac
+W() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else echo "$1"; fi; }
+CP="$(W "$OUT")$SEP$(W "$JSON_JAR")$SEP$(W "$ANDROID_JAR")"
 javac -encoding UTF-8 -cp "$CP" -d "$OUT" \
   "$(W "$ROOT")/app/android/app/src/main/java/com/workcountdown/app/WidgetConfig.java" \
   "$(W "$ROOT")/tools/widget-golden/WidgetGoldenTest.java"
-java -cp "$CP" com.workcountdown.app.WidgetGoldenTest "$(W "$ROOT")\\tools\\golden-cases.json"
+java -cp "$CP" com.workcountdown.app.WidgetGoldenTest "$(W "$ROOT")/tools/golden-cases.json"
