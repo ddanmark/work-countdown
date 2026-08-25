@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: 黄金向量（www + 小程序，严格断言）
+        run: node test-golden.js
+
+      - name: 在线节假日（严格断言）
+        run: node test-holiday-online.js
+
+      - name: 周/月进度回归（冒烟：异常即失败）
+        run: |
+          node test-week-range.js
+          node test-week-range-mp.js
+
+      - name: WidgetConfig 黄金向量（桌面 JVM）
+        run: bash tools/test-java.sh
+
+      - name: 生成器幂等校验（committed 代码与 holidays.json 一致）
+        run: |
+          node tools/gen-holidays.js
+          git diff --exit-code -- app/www/app.js miniprogram/miniprogram/utils/holidays.js app/android/app/src/main/java/com/workcountdown/app/WidgetConfig.java
