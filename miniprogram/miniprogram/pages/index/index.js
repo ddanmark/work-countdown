@@ -283,4 +283,49 @@ Page({
   },
   qlClose() { this.setData({ qlOpen: false }); },
   noop() {},
+
+  // ---------- 月历长按：单日调班/加班 ----------
+  onDayOverride(e) {
+    const dk = e.detail.dateKey;
+    const d = new Date(dk + "T00:00:00");
+    const cfg = app.getConfig();
+    const cur = sched.dayOverrideOf(cfg, d);
+    const tmpl = sched.daySchedule(cfg, d) || { workStart: "09:00", workEnd: "18:00", breaks: [] };
+    this.setData({
+      doOpen: true,
+      doDate: dk,
+      doWeek: sched.WEEK_FULL[d.getDay()],
+      doStart: cur && !cur.off ? cur.workStart : tmpl.workStart,
+      doEnd: cur && !cur.off ? cur.workEnd : tmpl.workEnd,
+      doHas: !!cur,
+      doTmplBreaks: (tmpl.breaks || []).map(function (b) { return { name: b.name, start: b.start, end: b.end }; }),
+    });
+  },
+  doStartChange(e) { this.setData({ doStart: e.detail.value }); },
+  doEndChange(e) { this.setData({ doEnd: e.detail.value }); },
+  doPick(e) {
+    const act = e.currentTarget.dataset.act;
+    const dk = this.data.doDate;
+    const cfg = app.getConfig();
+    let msg;
+    if (act === "off") {
+      if (!cfg.dayOverrides) cfg.dayOverrides = {};
+      cfg.dayOverrides[dk] = { off: true };
+      msg = "已设置 " + dk + " 调休休息";
+    } else if (act === "clear") {
+      if (cfg.dayOverrides) delete cfg.dayOverrides[dk];
+      msg = "已清除 " + dk + " 的调班";
+    } else {
+      const ws = this.data.doStart, we = this.data.doEnd;
+      if (ws >= we) { wx.showToast({ title: "结束时间需晚于开始时间", icon: "none" }); return; }
+      if (!cfg.dayOverrides) cfg.dayOverrides = {};
+      cfg.dayOverrides[dk] = { workStart: ws, workEnd: we, breaks: this.data.doTmplBreaks || [] };
+      msg = "已设置 " + dk + " " + ws + "-" + we;
+    }
+    app.saveConfig(cfg);
+    this.afterLeaveChange();
+    this.setData({ doOpen: false });
+    wx.showToast({ title: msg, icon: "none" });
+  },
+  doClose() { this.setData({ doOpen: false }); },
 });

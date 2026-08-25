@@ -158,14 +158,26 @@ public class WidgetConfig {
 
     /**
      * 获取某天生效的排班（含上下班时间和休息段）。
+     * 单日调班/加班（dayOverrides[date] 带时段）优先于一切模板；
      * 大小周模式下：小周的周一~周五若配置了 small 覆盖，则读 small 的时间/休息，
      * 否则回退主字段。与前端 app.js daySchedule(date) 对齐。
      */
     public static DaySchedule getDay(JSONObject config, Calendar date) {
         DaySchedule day = new DaySchedule();
-        int dayOfWeek = date.get(Calendar.DAY_OF_WEEK);
-        int jsDay = dayOfWeek == Calendar.SUNDAY ? 0 : dayOfWeek - 1;
         try {
+            JSONObject ov = config.optJSONObject("dayOverrides");
+            JSONObject o = ov != null ? ov.optJSONObject(ymd(date)) : null;
+            if (o != null && !o.optBoolean("off", false)) {
+                String ws = o.optString("workStart", null);
+                String we = o.optString("workEnd", null);
+                if (ws != null && we != null && ws.compareTo(we) < 0) {
+                    fillTimes(day, o);
+                    day.enabled = true;
+                    return day;
+                }
+            }
+            int dayOfWeek = date.get(Calendar.DAY_OF_WEEK);
+            int jsDay = dayOfWeek == Calendar.SUNDAY ? 0 : dayOfWeek - 1;
             JSONObject schedules = config.getJSONObject("schedules");
             JSONObject d = schedules.getJSONObject(String.valueOf(jsDay));
             day.enabled = d.optBoolean("enabled", false);
@@ -176,25 +188,45 @@ public class WidgetConfig {
                 JSONObject small = d.optJSONObject("small");
                 if (small != null) src = small;
             }
-
-            day.workStart = src.optString("workStart", "09:00");
-            day.workEnd = src.optString("workEnd", "18:00");
-            JSONArray arr = src.optJSONArray("breaks");
-            if (arr != null && arr.length() > 0) {
-                day.breaks = new String[arr.length()][3];
-                for (int i = 0; i < arr.length(); i++) {
-                    JSONObject b = arr.getJSONObject(i);
-                    day.breaks[i][0] = b.optString("name", "休息" + (i + 1));
-                    day.breaks[i][1] = b.optString("start", "12:00");
-                    day.breaks[i][2] = b.optString("end", "13:00");
-                }
-            }
+            fillTimes(day, src);
         } catch (Exception e) { /* 用默认值 */ }
         return day;
     }
 
-    /** 判断某天是否为工作日（与前端 isWorkDay 对齐：节假日/调休/全天假/大小周；时段假当天仍算工作日） */
+    /** 从 JSON 填充 workStart/workEnd/breaks（调班对象与周模板同构） */
+    private static void fillTimes(DaySchedule day, JSONObject src) {
+        day.workStart = src.optString("workStart", "09:00");
+        day.workEnd = src.optString("workEnd", "18:00");
+        JSONArray arr = src.optJSONArray("breaks");
+        if (arr != null && arr.length() > 0) {
+            day.breaks = new String[arr.length()][3];
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject b = arr.getJSONObject(i);
+                day.breaks[i][0] = b.optString("name", "休息" + (i + 1));
+                day.breaks[i][1] = b.optString("start", "12:00");
+                day.breaks[i][2] = b.optString("end", "13:00");
+            }
+        }
+    }
+
+    /** 单日调班类型："off"=调休休息；"times"=按自定义时段上班；null=无。
+     *  与前端 dayOverrideOf 一致：时段缺失或 ws>=we 视为无效，按无覆盖处理 */
+    private static String dayOverrideKind(JSONObject config, Calendar date) {
+        JSONObject ov = config.optJSONObject("dayOverrides");
+        if (ov == null) return null;
+        JSONObject o = ov.optJSONObject(ymd(date));
+        if (o == null) return null;
+        if (o.optBoolean("off", false)) return "off";
+        String ws = o.optString("workStart", null);
+        String we = o.optString("workEnd", null);
+        if (ws != null && we != null && ws.compareTo(we) < 0) return "times";
+        return null;
+    }
+
+    /** 判断某天是否为工作日（与前端 isWorkDay 对齐：单日调班 > 节假日/调休/全天假/大小周；时段假当天仍算工作日） */
     public static boolean isWorkDay(JSONObject config, Calendar date) {
+        String dov = dayOverrideKind(config, date);
+        if (dov != null) return "times".equals(dov) && !isFullLeaveDay(config, date);
         String override = getHolidayOverride(config, date);
         boolean leave = isFullLeaveDay(config, date);
         if ("workday".equals(override)) {
@@ -306,6 +338,8 @@ public class WidgetConfig {
 
     /** 不考虑请假的"本该上班"判定：带薪假只在本来要上班的日子才计入 */
     static boolean isWorkDayIgnoringLeave(JSONObject config, Calendar date) {
+        String dov = dayOverrideKind(config, date);
+        if (dov != null) return "times".equals(dov);
         String override = getHolidayOverride(config, date);
         if ("workday".equals(override)) return true;
         if ("holiday".equals(override)) return false;
@@ -701,6 +735,8 @@ public class WidgetConfig {
             long dw = netWorkMs(day, ws, now);
             s.progress = tw > 0 ? (int) Math.min(100, Math.max(0, dw * 100 / tw)) : 0;
         }
+        // 单日调班标注
+        if ("times".equals(dayOverrideKind(config, now)) && s.subText != null) s.subText += "（调班）";
         s.todayPct = s.progress;
 
         // 今日已赚（工资口径：只扣不带薪假段，带薪时段照常累计）

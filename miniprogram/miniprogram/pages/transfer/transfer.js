@@ -77,6 +77,7 @@ Page({
       cfg.bigSmallAnchor = validated.bigSmallAnchor;
       cfg.holidays = validated.holidays || {};
       cfg.deletedBuiltinHolidays = validated.deletedBuiltinHolidays || {};
+      cfg.dayOverrides = validated.dayOverrides || {};
       cfg.leaves = validated.leaves || {};
       cfg.showMonthProgress = !!validated.showMonthProgress;
       cfg.salaryEnabled = !!validated.salaryEnabled;

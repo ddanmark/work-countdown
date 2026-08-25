@@ -58,7 +58,7 @@
     <rich-text wx:if="{{subInfo}}" class="sub-info" style="color:rgba(255,255,255,0.8);" nodes="{{subInfo}}"></rich-text>
   </view>
 
-  <calendar cfg="{{cfg}}" id="cal" bind:quickleave="onQuickLeave"></calendar>
+  <calendar cfg="{{cfg}}" id="cal" bind:quickleave="onQuickLeave" bind:dayoverride="onDayOverride"></calendar>
 
   <!-- 月历双击日期：快速请假 -->
   <view class="ql-overlay" wx:if="{{qlOpen}}" bindtap="qlClose">
@@ -84,6 +84,29 @@
       </view>
       <view class="ql-del" wx:for="{{qlEntries}}" wx:key="text" data-idx="{{index}}" bindtap="qlDelete">✕ 删除 {{item.text}}</view>
       <view class="ql-cancel" bindtap="qlClose">取消</view>
+    </view>
+  </view>
+
+  <!-- 月历长按日期：单日调班/加班 -->
+  <view class="ql-overlay" wx:if="{{doOpen}}" bindtap="doClose">
+    <view class="ql-box" catchtap="noop">
+      <view class="ql-title">调班 {{doDate}}（{{doWeek}}）</view>
+      <view class="ql-hint">仅影响这一天：加班改下班时间、临时休息、或周末/假日临时上班。请假照常扣减。</view>
+      <view class="ql-timerow">
+        <picker class="ql-time" mode="time" value="{{doStart}}" bindchange="doStartChange">
+          <view class="ql-time-btn">{{doStart}}</view>
+        </picker>
+        <text class="ql-sep">至</text>
+        <picker class="ql-time" mode="time" value="{{doEnd}}" bindchange="doEndChange">
+          <view class="ql-time-btn">{{doEnd}}</view>
+        </picker>
+      </view>
+      <view class="ql-opts">
+        <view class="ql-opt" data-act="off" bindtap="doPick">😴 休息（调休）</view>
+        <view class="ql-opt" data-act="save" bindtap="doPick">✅ 保存时段</view>
+      </view>
+      <view wx:if="{{doHas}}" class="ql-del" data-act="clear" bindtap="doPick">🗑️ 清除调班（恢复常规）</view>
+      <view class="ql-cancel" bindtap="doClose">取消</view>
     </view>
   </view>
 

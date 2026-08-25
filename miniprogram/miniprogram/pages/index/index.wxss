@@ -128,3 +128,6 @@
   color: rgba(255, 255, 255, 0.7);
   font-size: 24rpx;
 }
+
+/* 调班弹窗提示行 */
+.ql-hint { font-size: 22rpx; color: rgba(255,255,255,0.6); margin: 4rpx 0 10rpx; line-height: 1.5; }

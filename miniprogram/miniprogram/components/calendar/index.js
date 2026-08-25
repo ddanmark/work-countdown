@@ -59,6 +59,7 @@ Component({
           ? lvs.map(function (l) { return l.start ? l.reason + " " + l.start + "-" + l.end : l.reason; }).join(" · ")
           : "";
         const work = sched.isWorkDay(cfg, d);
+        const dov = sched.dayOverrideOf(cfg, d);
         let cls = "cal-cell";
         if (!inMonth) cls += " outside";
         let badge = "", badgeType = "", hoursText = "", style = "";
@@ -68,6 +69,21 @@ Component({
           // 全天假：整日休息
           cls += " leave"; badge = "假"; badgeType = "leave";
           detail += " · 请假（" + lvText + "）";
+        } else if (dov && dov.off) {
+          cls += " rest"; badge = "调"; badgeType = "ovr";
+          detail += " · 调休休息";
+        } else if (dov) {
+          // 单日调班/加班：按调班时段上班（配色同工作日）
+          cls += " work";
+          const hrs = sched.totalWorkMs(sched.effectiveDaySchedule(cfg, d)) / 3600000;
+          const alpha = Math.max(0.18, Math.min(0.55, hrs / 10));
+          if (dk === todayKey) style = "color:#fff;background:linear-gradient(135deg,rgba(255,209,102,0.8),rgba(183,128,217,0.8));";
+          else if (dk < todayKey) style = "color:#fff;background:rgba(255,209,102," + alpha.toFixed(3) + ");";
+          else style = "background:rgba(183,128,217," + alpha.toFixed(3) + ");";
+          hoursText = hrs.toFixed(1) + "h";
+          badge = lvs ? "假" : "调"; badgeType = lvs ? "leave" : "ovr";
+          detail += " · 调班 " + dov.workStart + "-" + dov.workEnd + " 约" + hrs.toFixed(1) + "h";
+          if (lvs) detail += " · 请假（" + lvText + "）";
         } else if (override === "holiday") {
           cls += " holiday"; badge = "休"; badgeType = "holiday";
           detail += " · 法定假日";
@@ -113,6 +129,14 @@ Component({
         this._lastTapTime = t;
         wx.showToast({ title: cell.dateKey + " " + cell.detail, icon: "none", duration: 1600 });
       }
+    },
+
+    // 长按：单日调班/加班，抛给父页面
+    onCellLongPress(e) {
+      const i = e.currentTarget.dataset.i;
+      const cell = this.data.cells[i];
+      if (!cell || !cell.inMonth) return;
+      this.triggerEvent("dayoverride", { dateKey: cell.dateKey });
     },
   },
 });

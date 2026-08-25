@@ -38,6 +38,7 @@ function defaultConfig() {
     holidays: {},
     deletedBuiltinHolidays: {},
     remoteHolidays: {},
+    dayOverrides: {},
     leaves: {},
     // 默认开启：本月工作进度 + 工资显示，默认月工资 5000
     showMonthProgress: true,
@@ -70,6 +71,26 @@ function parseConfig(saved) {
       holidays: (saved.holidays && typeof saved.holidays === "object") ? saved.holidays : {},
       deletedBuiltinHolidays: (saved.deletedBuiltinHolidays && typeof saved.deletedBuiltinHolidays === "object") ? saved.deletedBuiltinHolidays : {},
       remoteHolidays: (saved.remoteHolidays && typeof saved.remoteHolidays === "object" && !Array.isArray(saved.remoteHolidays)) ? saved.remoteHolidays : {},
+      dayOverrides: (function () {
+        var src = (saved.dayOverrides && typeof saved.dayOverrides === "object" && !Array.isArray(saved.dayOverrides)) ? saved.dayOverrides : {};
+        var out = {};
+        var dateRe = /^\d{4}-\d{2}-\d{2}$/;
+        Object.keys(src).forEach(function (k) {
+          if (!dateRe.test(k)) return;
+          var v = src[k];
+          if (!v || typeof v !== "object") return;
+          if (v.off) { out[k] = { off: true }; return; }
+          var ws = sched.normHM(v.workStart), we = sched.normHM(v.workEnd);
+          if (!ws || !we || ws >= we) return;
+          var br = Array.isArray(v.breaks)
+            ? v.breaks
+                .filter(function (b) { return b && typeof b === "object" && sched.normHM(b.start) && sched.normHM(b.end) && sched.normHM(b.start) < sched.normHM(b.end); })
+                .map(function (b) { return { name: b.name || "休息", start: sched.normHM(b.start), end: sched.normHM(b.end) }; })
+            : [];
+          out[k] = { workStart: ws, workEnd: we, breaks: br };
+        });
+        return out;
+      })(),
       leaves: (saved.leaves && typeof saved.leaves === "object") ? saved.leaves : {},
       showMonthProgress: !!saved.showMonthProgress,
       salaryEnabled: !!saved.salaryEnabled,
@@ -96,6 +117,30 @@ function expandBreaks(cb) {
   });
   return result;
 }
+// 单日调班压缩：{off:true}→0；{ws,we,breaks}→[ws,we,breaks?]（与安卓端一致）
+function compactOverrides(ov) {
+  var out = {};
+  Object.keys(ov).forEach(function (d) {
+    var v = ov[d];
+    if (!v || typeof v !== "object") return;
+    if (v.off) { out[d] = 0; return; }
+    if (typeof v.workStart !== "string" || typeof v.workEnd !== "string") return;
+    var arr = [v.workStart, v.workEnd];
+    var cb = compactBreaks(v.breaks);
+    if (cb) arr.push(cb);
+    out[d] = arr;
+  });
+  return out;
+}
+function expandOverrides(co) {
+  var out = {};
+  Object.keys(co).forEach(function (d) {
+    var v = co[d];
+    if (v === 0 || v === "off") out[d] = { off: true };
+    else if (Array.isArray(v) && typeof v[0] === "string" && typeof v[1] === "string") out[d] = { workStart: v[0], workEnd: v[1], breaks: expandBreaks(Array.isArray(v[2]) ? v[2] : null) };
+  });
+  return out;
+}
 
 function compactConfig(cfg) {
   // remoteHolidays 故意不参与压缩导出：属可再获取的在线数据，避免撑大配置文本
@@ -118,6 +163,7 @@ function compactConfig(cfg) {
   }
   if (cfg.holidays && Object.keys(cfg.holidays).length > 0) out.h = cfg.holidays;
   if (cfg.deletedBuiltinHolidays && Object.keys(cfg.deletedBuiltinHolidays).length > 0) out.dh = cfg.deletedBuiltinHolidays;
+  if (cfg.dayOverrides && Object.keys(cfg.dayOverrides).length > 0) out.do = compactOverrides(cfg.dayOverrides);
   if (cfg.leaves && Object.keys(cfg.leaves).length > 0) out.lv = cfg.leaves;
   var other = {};
   if (cfg.showMonthProgress) other.mp = 1;
@@ -138,6 +184,7 @@ function expandConfig(compact) {
   }
   if (compact.h) out.holidays = compact.h;
   if (compact.dh) out.deletedBuiltinHolidays = compact.dh;
+  if (compact.do) out.dayOverrides = expandOverrides(compact.do);
   if (compact.lv) out.leaves = compact.lv;
   if (compact.o) {
     out.showMonthProgress = !!compact.o.mp;

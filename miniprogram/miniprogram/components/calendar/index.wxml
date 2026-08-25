@@ -18,6 +18,7 @@
       style="{{item.style}}"
       data-i="{{index}}"
       bindtap="onCellTap"
+      bindlongpress="onCellLongPress"
     >
       <text class="cal-num">{{item.dayText}}</text>
       <text wx:if="{{item.hoursText}}" class="cal-hours">{{item.hoursText}}</text>

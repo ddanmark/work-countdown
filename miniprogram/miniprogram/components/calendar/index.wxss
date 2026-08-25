@@ -96,3 +96,4 @@
   border: 2rpx solid var(--accent);
   box-shadow: 0 0 16rpx rgba(255, 209, 102, 0.5);
 }
+.badge-ovr { background: rgba(255, 159, 28, 0.95); color: #3a2200; }

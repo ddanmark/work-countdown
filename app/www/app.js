@@ -269,13 +269,33 @@
         holidays: saved.holidays && typeof saved.holidays === "object" ? saved.holidays : {},
         deletedBuiltinHolidays: saved.deletedBuiltinHolidays && typeof saved.deletedBuiltinHolidays === "object" ? saved.deletedBuiltinHolidays : {},
         remoteHolidays: saved.remoteHolidays && typeof saved.remoteHolidays === "object" && !Array.isArray(saved.remoteHolidays) ? saved.remoteHolidays : {},
+        dayOverrides: (function () {
+          var src = saved.dayOverrides && typeof saved.dayOverrides === "object" && !Array.isArray(saved.dayOverrides) ? saved.dayOverrides : {};
+          var out = {};
+          var dateRe = /^\d{4}-\d{2}-\d{2}$/;
+          Object.keys(src).forEach(function (k) {
+            if (!dateRe.test(k)) return;
+            var v = src[k];
+            if (!v || typeof v !== "object") return;
+            if (v.off) { out[k] = { off: true }; return; }
+            var ws = normHM(v.workStart), we = normHM(v.workEnd);
+            if (!ws || !we || ws >= we) return;
+            var br = Array.isArray(v.breaks)
+              ? v.breaks
+                  .filter(function (b) { return b && typeof b === "object" && normHM(b.start) && normHM(b.end) && normHM(b.start) < normHM(b.end); })
+                  .map(function (b) { return { name: b.name || "休息", start: normHM(b.start), end: normHM(b.end) }; })
+              : [];
+            out[k] = { workStart: ws, workEnd: we, breaks: br };
+          });
+          return out;
+        })(),
         leaves: saved.leaves && typeof saved.leaves === "object" ? saved.leaves : {},
         showMonthProgress: !!saved.showMonthProgress,
         salaryEnabled: !!saved.salaryEnabled,
         monthlySalary: typeof saved.monthlySalary === "number" && isFinite(saved.monthlySalary) && saved.monthlySalary >= 0 ? saved.monthlySalary : 0,
       };
     }
-    return { schedules: defaultSchedules(), mode: "fixed", bigSmallAnchor: null, holidays: {}, deletedBuiltinHolidays: {}, remoteHolidays: {}, leaves: {}, showMonthProgress: false, salaryEnabled: false, monthlySalary: 0 };
+    return { schedules: defaultSchedules(), mode: "fixed", bigSmallAnchor: null, holidays: {}, deletedBuiltinHolidays: {}, remoteHolidays: {}, dayOverrides: {}, leaves: {}, showMonthProgress: false, salaryEnabled: false, monthlySalary: 0 };
   }
 
   // ---------- 配置压缩/解压 ----------
@@ -285,6 +305,30 @@
       if (br.name === "午休") return [br.start, br.end];
       return [br.name || "", br.start, br.end];
     });
+  }
+  // 单日调班压缩：{off:true}→0；{ws,we,breaks}→[ws,we,breaks?]
+  function compactOverrides(ov) {
+    var out = {};
+    Object.keys(ov).forEach(function (d) {
+      var v = ov[d];
+      if (!v || typeof v !== "object") return;
+      if (v.off) { out[d] = 0; return; }
+      if (typeof v.workStart !== "string" || typeof v.workEnd !== "string") return;
+      var arr = [v.workStart, v.workEnd];
+      var cb = compactBreaks(v.breaks);
+      if (cb) arr.push(cb);
+      out[d] = arr;
+    });
+    return out;
+  }
+  function expandOverrides(co) {
+    var out = {};
+    Object.keys(co).forEach(function (d) {
+      var v = co[d];
+      if (v === 0 || v === "off") out[d] = { off: true };
+      else if (Array.isArray(v) && typeof v[0] === "string" && typeof v[1] === "string") out[d] = { workStart: v[0], workEnd: v[1], breaks: expandBreaks(Array.isArray(v[2]) ? v[2] : null) };
+    });
+    return out;
   }
   function expandBreaks(cb) {
     if (!cb) return [];
@@ -316,6 +360,7 @@
     }
     if (cfg.holidays && Object.keys(cfg.holidays).length > 0) out.h = cfg.holidays;
     if (cfg.deletedBuiltinHolidays && Object.keys(cfg.deletedBuiltinHolidays).length > 0) out.dh = cfg.deletedBuiltinHolidays;
+    if (cfg.dayOverrides && Object.keys(cfg.dayOverrides).length > 0) out.do = compactOverrides(cfg.dayOverrides);
     if (cfg.leaves && Object.keys(cfg.leaves).length > 0) out.lv = cfg.leaves;
     var other = {};
     if (cfg.showMonthProgress) other.mp = 1;
@@ -335,6 +380,7 @@
     }
     if (compact.h) out.holidays = compact.h;
     if (compact.dh) out.deletedBuiltinHolidays = compact.dh;
+    if (compact.do) out.dayOverrides = expandOverrides(compact.do);
     if (compact.lv) out.leaves = compact.lv;
     if (compact.o) {
       out.showMonthProgress = !!compact.o.mp;
@@ -653,7 +699,22 @@
   function isLeaveDay(date) {
     return !!(cfg.leaves && cfg.leaves.hasOwnProperty(ymd(date)));
   }
+  // 单日调班/加班覆盖（cfg.dayOverrides[date]）：用户对某天的明确排班意图，
+  // 优先于节假日与周模板（含大小周）；请假仍在其上照常扣减。
+  // {off:true}=调休休息；{workStart,workEnd,breaks}=按该时段上班（如加班到 21:00）。
+  // 与 WidgetConfig.java、小程序 schedule.js 保持一致。
+  function dayOverrideOf(date) {
+    var o = cfg.dayOverrides && cfg.dayOverrides[ymd(date)];
+    if (!o || typeof o !== "object") return null;
+    if (o.off) return { off: true };
+    if (typeof o.workStart === "string" && typeof o.workEnd === "string" && o.workStart < o.workEnd) {
+      return { workStart: o.workStart, workEnd: o.workEnd, breaks: Array.isArray(o.breaks) ? o.breaks : [] };
+    }
+    return null;
+  }
   function isWorkDay(date) {
+    var dov = dayOverrideOf(date);
+    if (dov) return !dov.off && !isFullLeaveDay(date);
     var override = getHolidayOverride(date);
     if (override === "workday") {
       if (isFullLeaveDay(date)) return false;
@@ -724,6 +785,8 @@
   }
   // 不考虑请假的"本该上班"判定：带薪假只在本来要上班的日子才计入
   function isWorkDayIgnoringLeave(date) {
+    var dov = dayOverrideOf(date);
+    if (dov) return !dov.off;
     var override = getHolidayOverride(date);
     if (override === "workday") return true;
     if (override === "holiday") return false;
@@ -779,8 +842,11 @@
   function setThisWeekType(type) {
     cfg.bigSmallAnchor = { monday: ymd(getMondayOfWeek(new Date())), type: type };
   }
-  // 大小周：按日期返回当天实际生效的 schedule（小周且配置了 small 时返回 small，否则主字段）
+  // 大小周：按日期返回当天实际生效的 schedule（小周且配置了 small 时返回 small，否则主字段）；
+  // 单日调班（带时段）优先于一切模板
   function daySchedule(date) {
+    var dov = dayOverrideOf(date);
+    if (dov && !dov.off) return { workStart: dov.workStart, workEnd: dov.workEnd, breaks: dov.breaks };
     const idx = date.getDay();
     const sch = cfg.schedules[idx];
     if (!sch) return null;
@@ -1499,11 +1565,12 @@
     });
   }
   el.resetBtn.addEventListener("click", () => {
-    // 与小程序端语义一致：只恢复默认排班；节假日、请假、工资等不受影响
-    if (!confirm("确定恢复默认排班吗？\n（节假日、请假、工资等不受影响）")) return;
+    // 与小程序端语义一致：只恢复默认排班（含单日调班）；节假日、请假、工资等不受影响
+    if (!confirm("确定恢复默认排班吗？\n（节假日、请假、工资等不受影响，单日调班/加班将被清除）")) return;
     cfg.schedules = defaultSchedules();
     cfg.mode = "fixed";
     cfg.bigSmallAnchor = null;
+    cfg.dayOverrides = {};
     editingDay = new Date().getDay();
     editingVariant = "big";
     persist();
@@ -1799,6 +1866,7 @@
       cfg.holidays = validated.holidays || {};
       cfg.leaves = validated.leaves || {};
       cfg.deletedBuiltinHolidays = validated.deletedBuiltinHolidays || {};
+      cfg.dayOverrides = validated.dayOverrides || {};
       cfg.showMonthProgress = !!validated.showMonthProgress;
       cfg.salaryEnabled = !!validated.salaryEnabled;
       cfg.monthlySalary = validated.monthlySalary || 0;
@@ -1898,6 +1966,7 @@
 
     if (!todayIsWork) {
       var isLegalHoliday = isBuiltinHoliday(now) || (cfg.holidays && cfg.holidays[ymd(now)] === "holiday");
+      var tDovRest = dayOverrideOf(now);
       if (isLegalHoliday) {
         statusClass = "holiday";
         statusText = "🎊 今天是法定节假日，" + WEEK_FULL[todayIdx] + "休息！";
@@ -1908,6 +1977,8 @@
           ? isPaidLeaveDay(now)
             ? "🌴 " + lvReason + "中，带薪休息，工资不受影响"
             : "🍃 " + lvReason + "中"
+          : tDovRest && tDovRest.off
+          ? "🌙 今天调休，好好休息！"
           : "🎉 今天是" + WEEK_FULL[todayIdx] + "，休息日！";
       }
       targetMs = 0;
@@ -1918,8 +1989,11 @@
       const ws = toDate(today.workStart, base);
       const we = toDate(today.workEnd, base);
       const brk = currentBreak(today, now);
-      var isMakeupDay = (cfg.holidays && cfg.holidays[ymd(now)] === "workday") || BUILTIN_HOLIDAYS[ymd(now)] === "workday";
+      // 调休/调班后缀：单日调班（明确意图）优先于调休上班标记
+      var isMakeupDay = getHolidayOverride(now) === "workday";
       var makeupSuffix = isMakeupDay ? "（调休上班）" : "";
+      var tDovWork = dayOverrideOf(now);
+      if (tDovWork && !tDovWork.off) makeupSuffix = "（今日调班）";
       if (now < ws) {
         statusClass = "before";
         statusText = "😴 还没到上班时间" + makeupSuffix;
@@ -2304,6 +2378,91 @@
     if (quickLeavePop) quickLeavePop.classList.remove("open");
   }
 
+  // ---------- 日历长按：单日调班/加班 ----------
+  let dayOvPop = null, dayOvBox = null;
+  function ensureDayOvPop() {
+    if (dayOvPop) return;
+    const overlay = document.createElement("div");
+    overlay.className = "quick-leave-overlay"; // 复用快捷请假的遮罩/盒子样式
+    const box = document.createElement("div");
+    box.className = "quick-leave-box";
+    overlay.appendChild(box);
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) closeDayOverride();
+    });
+    document.body.appendChild(overlay);
+    dayOvPop = overlay;
+    dayOvBox = box;
+  }
+  function openDayOverride(dk) {
+    ensureDayOvPop();
+    const d = new Date(dk + "T00:00:00");
+    const curOv = dayOverrideOf(d);
+    // 预填：已有调班用调班值，否则用当天模板（不含请假注入）；休息段沿用模板快照
+    const tmpl = daySchedule(d) || { workStart: "09:00", workEnd: "18:00", breaks: [] };
+    const preWs = curOv && !curOv.off ? curOv.workStart : tmpl.workStart;
+    const preWe = curOv && !curOv.off ? curOv.workEnd : tmpl.workEnd;
+    let html = '<div class="quick-leave-title">调班 ' + dk + "（" + WEEK_FULL[d.getDay()] + "）</div>";
+    html += '<div class="quick-leave-hint" style="font-size:12px;color:var(--text-dim);margin:2px 0 8px;">仅影响这一天：加班改下班时间、临时休息、或周末/假日临时上班。请假照常扣减。</div>';
+    html += '<div class="quick-leave-timerow">' +
+      '<div class="quick-leave-qlbox" id="doStartBox"></div>' +
+      '<span class="quick-leave-sep">至</span>' +
+      '<div class="quick-leave-qlbox" id="doEndBox"></div>' +
+      "</div>";
+    html += '<div class="quick-leave-opts">';
+    html += '<button class="quick-leave-opt" data-act="off">😴 休息（调休）</button>';
+    html += '<button class="quick-leave-opt" data-act="save">✅ 保存时段</button>';
+    html += "</div>";
+    if (curOv) html += '<button class="quick-leave-del" data-act="clear">🗑️ 清除调班（恢复常规）</button>';
+    html += '<button class="quick-leave-cancel">取消</button>';
+    dayOvBox.innerHTML = html;
+    const startPk = createTimePicker(preWs);
+    const endPk = createTimePicker(preWe);
+    dayOvBox.querySelector("#doStartBox").appendChild(startPk.el);
+    dayOvBox.querySelector("#doEndBox").appendChild(endPk.el);
+    dayOvBox.querySelectorAll(".quick-leave-opt").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var msg;
+        if (this.dataset.act === "off") {
+          if (!cfg.dayOverrides) cfg.dayOverrides = {};
+          cfg.dayOverrides[dk] = { off: true };
+          msg = "已设置 " + dk + " 调休休息";
+        } else {
+          var ws = startPk.getValue(), we = endPk.getValue();
+          if (ws >= we) {
+            showToast("结束时间需晚于开始时间");
+            return;
+          }
+          if (!cfg.dayOverrides) cfg.dayOverrides = {};
+          cfg.dayOverrides[dk] = {
+            workStart: ws,
+            workEnd: we,
+            breaks: (tmpl.breaks || []).map(function (br) { return { name: br.name, start: br.start, end: br.end }; }),
+          };
+          msg = "已设置 " + dk + " " + ws + "-" + we;
+        }
+        persist();
+        closeDayOverride();
+        update();
+        showToast(msg);
+      });
+    });
+    const clearBtn = dayOvBox.querySelector('.quick-leave-del[data-act="clear"]');
+    if (clearBtn)
+      clearBtn.addEventListener("click", function () {
+        if (cfg.dayOverrides) delete cfg.dayOverrides[dk];
+        persist();
+        closeDayOverride();
+        update();
+        showToast("已清除 " + dk + " 的调班");
+      });
+    dayOvBox.querySelector(".quick-leave-cancel").addEventListener("click", closeDayOverride);
+    dayOvPop.classList.add("open");
+  }
+  function closeDayOverride() {
+    if (dayOvPop) dayOvPop.classList.remove("open");
+  }
+
   function renderCalendar() {
     if (!el.calGrid) return;
     const key = calVersion + "|" + calYear + "-" + calMonth + "|" + ymd(new Date());
@@ -2340,6 +2499,7 @@
         ? lvs.map(function (l) { return l.start ? l.reason + " " + l.start + "-" + l.end : l.reason; }).join(" · ")
         : "";
       const work = isWorkDay(d);
+      const dov = dayOverrideOf(d);
       let badge = "",
         hoursText = "",
         detail = WEEK_FULL[d.getDay()];
@@ -2348,6 +2508,29 @@
         cell.classList.add("leave");
         badge = "假";
         detail += " · 请假（" + lvText + "）";
+      } else if (dov && dov.off) {
+        cell.classList.add("rest");
+        badge = "调";
+        detail += " · 调休休息";
+      } else if (dov) {
+        // 单日调班/加班：按调班时段上班（配色同工作日）
+        const hrs = totalWorkMs(effectiveDaySchedule(d)) / 3600000;
+        cell.classList.add("work");
+        badge = lvs ? "假" : "调";
+        detail += " · 调班 " + dov.workStart + "-" + dov.workEnd + " 约" + hrs.toFixed(1) + "h";
+        if (lvs) detail += " · 请假（" + lvText + "）";
+        const alpha = Math.max(0.18, Math.min(0.55, hrs / 10));
+        if (dk === todayKey) {
+          cell.classList.add("cal-today-work");
+          cell.style.color = "white";
+          cell.style.background = todayWorkGradient(todayWorkPct(new Date()), hrs);
+        } else if (dk < todayKey) {
+          cell.style.color = "white";
+          cell.style.background = "rgba(255, 209, 102, " + alpha.toFixed(3) + ")";
+        } else {
+          cell.style.background = "rgba(183, 128, 217, " + alpha.toFixed(3) + ")";
+        }
+        hoursText = hrs.toFixed(1) + "h";
       } else if (override === "holiday") {
         cell.classList.add("holiday");
         badge = "休";
@@ -2399,8 +2582,40 @@
       if (hoursText) inner += '<span class="cal-hours">' + hoursText + "</span>";
       if (badge) inner += '<span class="cal-badge">' + badge + "</span>";
       cell.innerHTML = inner;
-      if (inMonth)
+      if (inMonth) {
+        // 长按 550ms：调班/加班弹窗（touch 端）；桌面右键同入口
+        var lpTimer = null, lpFired = false;
+        cell.addEventListener("touchstart", function () {
+          lpFired = false;
+          lpTimer = setTimeout(function () {
+            lpFired = true;
+            openDayOverride(dk);
+          }, 550);
+        }, { passive: true });
+        ["touchmove", "touchcancel"].forEach(function (ev) {
+          cell.addEventListener(ev, function () {
+            if (lpTimer) {
+              clearTimeout(lpTimer);
+              lpTimer = null;
+            }
+          }, { passive: true });
+        });
+        cell.addEventListener("touchend", function (e) {
+          if (lpTimer) {
+            clearTimeout(lpTimer);
+            lpTimer = null;
+          }
+          if (lpFired) {
+            e.preventDefault();
+            lpFired = false;
+          }
+        });
+        cell.addEventListener("contextmenu", function (e) {
+          e.preventDefault();
+          openDayOverride(dk);
+        });
         cell.addEventListener("click", function () {
+          if (lpFired) return;
           // 双击（400ms 内连点同一格）：快速请假；单击仍显示当天详情
           const t = Date.now();
           if (dk === quickTapDate && t - quickTapTime < 400) {
@@ -2413,6 +2628,7 @@
             showToast(dk + " " + detail);
           }
         });
+      }
       frag.appendChild(cell);
     }
     el.calGrid.innerHTML = "";
@@ -2440,6 +2656,7 @@
       cfg.holidays = next.holidays || {};
       cfg.leaves = next.leaves || {};
       cfg.deletedBuiltinHolidays = next.deletedBuiltinHolidays || {};
+      cfg.dayOverrides = next.dayOverrides || {};
       cfg.showMonthProgress = !!next.showMonthProgress;
       cfg.salaryEnabled = !!next.salaryEnabled;
       cfg.monthlySalary = next.monthlySalary || 0;

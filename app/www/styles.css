@@ -1743,3 +1743,5 @@ body::after  { width: 300px; height: 300px; bottom: -100px; right: -80px; }
 .holiday-online-status.holiday-online-warn {
   color: var(--accent);
 }
+
+.cal-leg-sw.leg-ovr { background: rgba(255, 159, 28, 0.7); }

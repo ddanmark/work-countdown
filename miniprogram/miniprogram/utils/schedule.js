@@ -130,8 +130,22 @@ function isFullLeaveDay(cfg, date) {
   return !!lvs && lvs.length > 0 && lvs.some(function (l) { return !l.start; });
 }
 
+// 单日调班/加班覆盖（cfg.dayOverrides[date]）：优先于节假日与周模板，请假照常扣减。
+// {off:true}=调休休息；{workStart,workEnd,breaks}=按该时段上班。与安卓端 app.js 一致。
+function dayOverrideOf(cfg, date) {
+  var o = cfg.dayOverrides && cfg.dayOverrides[ymd(date)];
+  if (!o || typeof o !== "object") return null;
+  if (o.off) return { off: true };
+  if (typeof o.workStart === "string" && typeof o.workEnd === "string" && o.workStart < o.workEnd) {
+    return { workStart: o.workStart, workEnd: o.workEnd, breaks: Array.isArray(o.breaks) ? o.breaks : [] };
+  }
+  return null;
+}
+
 // 不考虑请假的"本该上班"判定：带薪假只在本来要上班的日子才计入
 function isWorkDayIgnoringLeave(cfg, date) {
+  var dov = dayOverrideOf(cfg, date);
+  if (dov) return !dov.off;
   var override = getHolidayOverride(cfg, date);
   if (override === "workday") return true;
   if (override === "holiday") return false;
@@ -226,6 +240,8 @@ function setThisWeekType(cfg, type) {
 
 // ---------- 工作日判定（全天假=休息日；时段假当天仍是工作日） ----------
 function isWorkDay(cfg, date) {
+  var dov = dayOverrideOf(cfg, date);
+  if (dov) return !dov.off && !isFullLeaveDay(cfg, date);
   var override = getHolidayOverride(cfg, date);
   if (override === "workday") { if (isFullLeaveDay(cfg, date)) return false; return true; }
   if (override === "holiday") return false;
@@ -237,8 +253,10 @@ function isWorkDay(cfg, date) {
   return !!sch.enabled;
 }
 
-// 大小周：按日期返回当天实际生效的 schedule
+// 大小周：按日期返回当天实际生效的 schedule；单日调班（带时段）优先于一切模板
 function daySchedule(cfg, date) {
+  var dov = dayOverrideOf(cfg, date);
+  if (dov && !dov.off) return { workStart: dov.workStart, workEnd: dov.workEnd, breaks: dov.breaks };
   const idx = date.getDay();
   const sch = cfg.schedules[idx];
   if (!sch) return null;
@@ -413,8 +431,8 @@ function computeMonthStandardTime(cfg, now) {
 module.exports = {
   WEEK_ORDER, WEEK_LABEL, WEEK_FULL,
   ymd, toDate,
-  getHolidayOverride, isBuiltinHoliday, isPresetHolidayKey, remoteHolidayInfo, isLeaveDay, leaveReasonOf, normalizeLeaveReason,
-  parseLeaveEntry, parseLeaveValue, leaveInfosOf, isFullLeaveDay, isPaidLeaveDay, effectiveDaySchedule,
+  getHolidayOverride, isBuiltinHoliday, isPresetHolidayKey, remoteHolidayInfo, isLeaveDay, leaveReasonOf, normalizeLeaveReason, dayOverrideOf,
+  parseLeaveEntry, parseLeaveValue, leaveInfosOf, isFullLeaveDay, isPaidLeaveDay, effectiveDaySchedule, normHM,
   addLeaveEntry, removeLeaveEntry,
   getMondayOfWeek, isBigWeek, setThisWeekType,
   isWorkDay, daySchedule, cloneDayTimes, dayTimesEqual,

@@ -104,6 +104,33 @@ function buildCases() {
     workDayChecks: [["2026-10-01", true], ["2026-10-02", false], ["2026-10-10", true]],
   });
 
+  // I. 单日调班：周二加班 9-21（含午休），同日还有自定义节假日——调班优先于假期层
+  cases.push({
+    name: "I 调班加班+节日冲突",
+    config: baseCfg({
+      dayOverrides: { "2026-08-25": { workStart: "09:00", workEnd: "21:00", breaks: [{ name: "午休", start: "12:00", end: "13:00" }] } },
+      holidays: { "2026-08-25": "holiday" },
+    }),
+    now: "2026-08-24T10:00:00",
+    workDayChecks: [["2026-08-25", true]],
+  });
+
+  // J. 单日调休休息：周三 off
+  cases.push({
+    name: "J 调休休息",
+    config: baseCfg({ dayOverrides: { "2026-08-26": { off: true } } }),
+    now: "2026-08-24T10:00:00",
+    workDayChecks: [["2026-08-26", false]],
+  });
+
+  // K. 周六加班自定义时段：10:00-15:00 无休息段
+  cases.push({
+    name: "K 周六加班时段",
+    config: baseCfg({ dayOverrides: { "2026-08-29": { workStart: "10:00", workEnd: "15:00", breaks: [] } } }),
+    now: "2026-08-24T10:00:00",
+    workDayChecks: [["2026-08-29", true]],
+  });
+
   return cases;
 }
 
