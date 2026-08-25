@@ -28,3 +28,6 @@ desktop.ini
 
 # Java 黄金向量测试的编译产物（json.jar 保留入库以便开箱即测）
 tools/vendor/classes/
+
+# PWA 网页版构建产物（tools/build-web.js 生成，Pages 工作流本地无需入库）
+web/

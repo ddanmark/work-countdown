@@ -1785,3 +1785,15 @@ body::after  { width: 300px; height: 300px; bottom: -100px; right: -80px; }
   font-weight: 700;
   border-bottom: 1px solid rgba(255, 255, 255, 0.25);
 }
+
+/* ---------- 桌面浏览器 / PWA 网页版：居中限宽，保持手机版观感 ---------- */
+@media (min-width: 640px) {
+  body {
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .container {
+    max-width: 480px;
+    margin: 24px auto;
+  }
+}
