@@ -4,6 +4,7 @@ const sched = require("../../utils/schedule.js");
 const config = require("../../utils/config.js");
 const holidays = require("../../utils/holidays.js");
 const fmt = require("../../utils/format.js");
+const feed = require("../../utils/holiday-feed.js");
 
 const HOLIDAY_TYPE_OPTIONS = ["🎉 节假日", "💼 调休日"];
 const HOLIDAY_TYPE_VALUES = ["holiday", "workday"];
@@ -37,6 +38,9 @@ Page({
     holidayTypeIndex: 0,
     holidayTypeOptions: HOLIDAY_TYPE_OPTIONS,
     holidaySubtab: "builtin",
+    holidayOnlineStatus: "🌐 在线数据：未更新",
+    holidayOnlineWarn: false,
+    holidayUpdating: false,
     builtinGroups: [],
     customHolidays: [],
     // —— 请假 ——
@@ -277,28 +281,93 @@ Page({
   // ===================== 节假日 =====================
   renderHoliday() {
     const cfg = this.cfg;
-    const builtinGroups = holidays.HOLIDAY_GROUPS.map(function (group) {
+    const remote = sched.remoteHolidayInfo(cfg);
+    const remoteMap = remote ? remote.map : {};
+    // 展示分组：内置编译分组 + 在线数据分组（在线分组名带年份前缀并标 🌐；内置分组里已被在线修正的日期跳过）
+    const groups = [];
+    holidays.HOLIDAY_GROUPS.forEach(function (group) {
+      groups.push({ name: group.name, holidays: group.holidays, workdays: group.workdays, online: false });
+    });
+    if (cfg.remoteHolidays && typeof cfg.remoteHolidays === "object") {
+      Object.keys(cfg.remoteHolidays).sort().forEach(function (y) {
+        if (!Array.isArray(cfg.remoteHolidays[y])) return;
+        cfg.remoteHolidays[y].forEach(function (g) {
+          if (!g || typeof g.name !== "string") return;
+          groups.push({ name: y + " · " + g.name, holidays: Array.isArray(g.holidays) ? g.holidays : [], workdays: Array.isArray(g.workdays) ? g.workdays : [], online: true });
+        });
+      });
+    }
+    const builtinGroups = groups.map(function (group) {
       const items = [];
       group.holidays.forEach(function (d) {
+        if (!group.online && remoteMap.hasOwnProperty(d)) return;
         if (!cfg.deletedBuiltinHolidays || !cfg.deletedBuiltinHolidays.hasOwnProperty(d))
           items.push({ date: d, type: "holiday", overridden: !!(cfg.holidays && cfg.holidays.hasOwnProperty(d)), builtin: 1 });
       });
       group.workdays.forEach(function (d) {
+        if (!group.online && remoteMap.hasOwnProperty(d)) return;
         if (!cfg.deletedBuiltinHolidays || !cfg.deletedBuiltinHolidays.hasOwnProperty(d))
           items.push({ date: d, type: "workday", overridden: !!(cfg.holidays && cfg.holidays.hasOwnProperty(d)), builtin: 1 });
       });
       if (items.length === 0) return null;
       items.sort(function (a, b) { return a.date.localeCompare(b.date); });
-      return { name: group.name, count: items.length, items: items };
+      return { name: (group.online ? "🌐 " : "") + group.name, count: items.length, items: items };
     }).filter(Boolean);
 
     const customHolidays = [];
     if (cfg.holidays) Object.keys(cfg.holidays).forEach(function (k) {
-      if (!holidays.BUILTIN_HOLIDAYS.hasOwnProperty(k)) customHolidays.push({ date: k, type: cfg.holidays[k], builtin: 0 });
+      if (!sched.isPresetHolidayKey(cfg, k)) customHolidays.push({ date: k, type: cfg.holidays[k], builtin: 0 });
     });
     customHolidays.sort(function (a, b) { return a.date.localeCompare(b.date); });
 
-    this.setData({ builtinGroups, customHolidays });
+    // 在线状态行：当前年份没有任何法定数据时给出醒目提醒
+    const builtinYears = [];
+    holidays.HOLIDAY_GROUPS.forEach(function (g) {
+      g.holidays.concat(g.workdays).forEach(function (d) {
+        const y = d.slice(0, 4);
+        if (builtinYears.indexOf(y) < 0) builtinYears.push(y);
+      });
+    });
+    builtinYears.sort();
+    const remoteYears = remote ? remote.years : [];
+    const thisYear = String(new Date().getFullYear());
+    const missing = builtinYears.concat(remoteYears).indexOf(thisYear) < 0;
+    let statusText = remoteYears.length > 0
+      ? "🌐 在线数据已加载：" + remoteYears.join("、") + " 年"
+      : "🌐 在线数据：未更新（当前为内置数据 " + builtinYears.join("、") + " 年）";
+    if (missing) statusText += "\n⚠️ " + thisYear + " 年暂无法定节假日数据，请在线更新或手动添加";
+
+    this.setData({ builtinGroups, customHolidays, holidayOnlineStatus: statusText, holidayOnlineWarn: missing });
+  },
+
+  // 在线更新节假日：wx.request 拉取仓库 holidays.json → 校验 → 写入 cfg.remoteHolidays
+  onlineUpdateHoliday() {
+    if (this.data.holidayUpdating) return;
+    this.setData({ holidayUpdating: true });
+    wx.request({
+      url: feed.HOLIDAY_FEED_URL,
+      method: "GET",
+      timeout: 15000,
+      success: (res) => {
+        try {
+          if (res.statusCode !== 200) throw new Error("HTTP " + res.statusCode);
+          const text = typeof res.data === "string" ? res.data : JSON.stringify(res.data);
+          const v = feed.validateRemoteHolidayData(JSON.parse(text));
+          this.cfg.remoteHolidays = v.years;
+          this.persist();
+          this.renderHoliday();
+          showToast("✅ 已更新 " + v.count + " 天节假日");
+        } catch (e) {
+          showToast("❌ 数据无效：" + (e && e.message ? e.message : "未知错误"));
+        }
+      },
+      fail: () => {
+        showToast("❌ 网络错误，请稍后重试");
+      },
+      complete: () => {
+        this.setData({ holidayUpdating: false });
+      },
+    });
   },
 
   changeHolidayDate(e) { this.setData({ holidayDate: e.detail.value }); },
@@ -315,7 +384,7 @@ Page({
     this.persist(); this.renderHoliday();
     const typeName = type === "holiday" ? "节假日（休息）" : "调休日（上班）";
     showToast("已设置 " + date + " 为" + typeName);
-    if (holidays.BUILTIN_HOLIDAYS.hasOwnProperty(date)) this.setData({ holidaySubtab: "builtin" });
+    if (holidays.BUILTIN_HOLIDAYS.hasOwnProperty(date) || sched.isPresetHolidayKey(this.cfg, date)) this.setData({ holidaySubtab: "builtin" });
     else this.setData({ holidaySubtab: "custom" });
     this.setData({ holidayDate: "" });
   },
@@ -342,11 +411,12 @@ Page({
   resetBuiltin() {
     wx.showModal({
       title: "恢复法定节假日",
-      content: "确定要恢复全部默认法定节假日吗？这将撤销你对内置节假日的所有删除和修改。",
+      content: "确定要恢复全部默认法定节假日吗？这将撤销你对内置节假日的所有删除和修改，并清除已下载的在线节假日数据。",
       success: (res) => {
         if (!res.confirm) return;
         this.cfg.deletedBuiltinHolidays = {};
-        if (this.cfg.holidays) Object.keys(this.cfg.holidays).forEach((k) => { if (holidays.BUILTIN_HOLIDAYS.hasOwnProperty(k)) delete this.cfg.holidays[k]; });
+        if (this.cfg.holidays) Object.keys(this.cfg.holidays).forEach((k) => { if (sched.isPresetHolidayKey(this.cfg, k)) delete this.cfg.holidays[k]; });
+        this.cfg.remoteHolidays = {};
         this.persist(); this.renderHoliday();
         showToast("已恢复全部默认法定节假日");
       },

@@ -31,10 +31,80 @@
     });
   });
 
+  // ---------- 在线节假日数据 ----------
+  // 数据源为仓库 holidays.json 的 raw 链接，抓取后存入 cfg.remoteHolidays（结构与 holidays.json 的 years 一致）。
+  // 优先级：用户自定义 > 已删除内置 > 在线数据 > 内置编译数据（在线数据可修正内置同日数据）。
+  // 注意：remoteHolidays 不参与导出/导入（可随时重新在线获取，避免撑大二维码），导入配置后需重新在线更新。
+  const HOLIDAY_FEED_URL = "https://gitee.com/Nasblance/work-countdown/raw/main/holidays.json";
+  let REMOTE_HOLIDAYS = {}; // date -> "holiday" | "workday"
+  let REMOTE_CATEGORIES = {}; // date -> 组名
+  let REMOTE_YEARS = []; // 已加载年份（显示用）
+  function rebuildRemoteHolidays() {
+    REMOTE_HOLIDAYS = {};
+    REMOTE_CATEGORIES = {};
+    REMOTE_YEARS = [];
+    var src = cfg && cfg.remoteHolidays;
+    if (!src || typeof src !== "object") return;
+    Object.keys(src).sort().forEach(function (y) {
+      if (!/^\d{4}$/.test(y) || !Array.isArray(src[y])) return;
+      var n = 0;
+      src[y].forEach(function (g) {
+        if (!g || typeof g.name !== "string" || !Array.isArray(g.holidays) || !Array.isArray(g.workdays)) return;
+        g.holidays.forEach(function (d) { REMOTE_HOLIDAYS[d] = "holiday"; REMOTE_CATEGORIES[d] = g.name; n++; });
+        g.workdays.forEach(function (d) { REMOTE_HOLIDAYS[d] = "workday"; REMOTE_CATEGORIES[d] = g.name; n++; });
+      });
+      if (n > 0) REMOTE_YEARS.push(y);
+    });
+  }
+  function isPresetHolidayKey(key) {
+    return BUILTIN_HOLIDAYS.hasOwnProperty(key) || REMOTE_HOLIDAYS.hasOwnProperty(key);
+  }
+  function builtinHolidayYears() {
+    var s = {};
+    HOLIDAY_GROUPS.forEach(function (g) {
+      g.holidays.concat(g.workdays).forEach(function (d) { s[d.slice(0, 4)] = 1; });
+    });
+    return Object.keys(s).sort();
+  }
+  // 校验在线数据（白名单重建，规则与 tools/gen-holidays.js 一致），非法即抛错
+  function validateRemoteHolidayData(data) {
+    function bad(m) { throw new Error(m); }
+    if (!data || typeof data !== "object") bad("数据格式无效");
+    var years = data.years;
+    if (!years || typeof years !== "object" || Array.isArray(years)) bad("缺少 years 字段");
+    var clean = {}, seen = {}, total = 0;
+    var dateRe = /^\d{4}-\d{2}-\d{2}$/;
+    Object.keys(years).forEach(function (y) {
+      if (!/^\d{4}$/.test(y) || +y < 2020 || +y > 2099) bad("年份无效: " + y);
+      if (!Array.isArray(years[y])) bad(y + " 年数据格式无效");
+      var groups = [];
+      years[y].forEach(function (g) {
+        if (!g || typeof g.name !== "string" || !g.name || !Array.isArray(g.holidays) || !Array.isArray(g.workdays)) bad(y + " 年存在无效分组");
+        var grp = { name: g.name, holidays: [], workdays: [] };
+        function check(d, kind) {
+          if (typeof d !== "string" || !dateRe.test(d)) bad("日期格式无效: " + d);
+          var t = new Date(d + "T00:00:00");
+          if (isNaN(t.getTime()) || t.getFullYear() !== +d.slice(0, 4) || t.getMonth() !== +d.slice(5, 7) - 1 || t.getDate() !== +d.slice(8, 10)) bad("无效日期: " + d);
+          if (d.slice(0, 4) !== y) bad(d + " 与所在年份 " + y + " 不符");
+          if (seen[d]) bad("日期重复: " + d);
+          seen[d] = 1; grp[kind].push(d); total++;
+        }
+        g.holidays.forEach(function (d) { check(d, "holidays"); });
+        g.workdays.forEach(function (d) { check(d, "workdays"); });
+        groups.push(grp);
+      });
+      clean[y] = groups;
+    });
+    if (total === 0) bad("数据为空");
+    if (total > 500) bad("数据量异常（>500 天）");
+    return { years: clean, count: total };
+  }
+
   function getHolidayOverride(date) {
     var key = ymd(date);
     if (cfg.holidays && cfg.holidays.hasOwnProperty(key)) return cfg.holidays[key];
     if (cfg.deletedBuiltinHolidays && cfg.deletedBuiltinHolidays.hasOwnProperty(key)) return null;
+    if (REMOTE_HOLIDAYS.hasOwnProperty(key)) return REMOTE_HOLIDAYS[key];
     if (BUILTIN_HOLIDAYS.hasOwnProperty(key)) return BUILTIN_HOLIDAYS[key];
     return null;
   }
@@ -139,6 +209,8 @@
     holidayCustomList: document.getElementById("holidayCustomList"),
     holidaySubtabBar: document.getElementById("holidaySubtabBar"),
     holidayResetBtn: document.getElementById("holidayResetBtn"),
+    holidayUpdateBtn: document.getElementById("holidayUpdateBtn"),
+    holidayOnlineStatus: document.getElementById("holidayOnlineStatus"),
     leaveDateInput: document.getElementById("leaveDateInput"),
     leaveReasonInput: document.getElementById("leaveReasonInput"),
     leaveAllDayCheck: document.getElementById("leaveAllDayCheck"),
@@ -196,13 +268,14 @@
         bigSmallAnchor: saved.bigSmallAnchor && saved.bigSmallAnchor.monday ? saved.bigSmallAnchor : null,
         holidays: saved.holidays && typeof saved.holidays === "object" ? saved.holidays : {},
         deletedBuiltinHolidays: saved.deletedBuiltinHolidays && typeof saved.deletedBuiltinHolidays === "object" ? saved.deletedBuiltinHolidays : {},
+        remoteHolidays: saved.remoteHolidays && typeof saved.remoteHolidays === "object" && !Array.isArray(saved.remoteHolidays) ? saved.remoteHolidays : {},
         leaves: saved.leaves && typeof saved.leaves === "object" ? saved.leaves : {},
         showMonthProgress: !!saved.showMonthProgress,
         salaryEnabled: !!saved.salaryEnabled,
         monthlySalary: typeof saved.monthlySalary === "number" && isFinite(saved.monthlySalary) && saved.monthlySalary >= 0 ? saved.monthlySalary : 0,
       };
     }
-    return { schedules: defaultSchedules(), mode: "fixed", bigSmallAnchor: null, holidays: {}, deletedBuiltinHolidays: {}, leaves: {}, showMonthProgress: false, salaryEnabled: false, monthlySalary: 0 };
+    return { schedules: defaultSchedules(), mode: "fixed", bigSmallAnchor: null, holidays: {}, deletedBuiltinHolidays: {}, remoteHolidays: {}, leaves: {}, showMonthProgress: false, salaryEnabled: false, monthlySalary: 0 };
   }
 
   // ---------- 配置压缩/解压 ----------
@@ -223,6 +296,7 @@
     return result;
   }
   function compactConfig(cfg) {
+    // remoteHolidays 故意不参与压缩导出：属可再获取的在线数据，避免撑大二维码
     var out = { s: {}, m: cfg.mode || "fixed" };
     if (cfg.bigSmallAnchor) out.a = cfg.bigSmallAnchor;
     for (var k in cfg.schedules) {
@@ -595,7 +669,8 @@
   }
   function isBuiltinHoliday(date) {
     var key = ymd(date);
-    return BUILTIN_HOLIDAYS.hasOwnProperty(key) && BUILTIN_HOLIDAYS[key] === "holiday";
+    if (BUILTIN_HOLIDAYS.hasOwnProperty(key) && BUILTIN_HOLIDAYS[key] === "holiday") return true;
+    return REMOTE_HOLIDAYS.hasOwnProperty(key) && REMOTE_HOLIDAYS[key] === "holiday";
   }
   // 带薪假类型：所有请假时段的工时一律为 0（本周/本月总工时与"还需"随请假减少），
   // 但这些类型的假在工资口径里照常计薪（时薪费率与已赚的基准，见 updateMoneyDisplay）；
@@ -847,20 +922,41 @@
 
   // ---------- 法定节假日管理 ----------
   function renderHolidayList() {
+    renderHolidayOnlineStatus();
     renderBuiltinHolidays();
     renderCustomHolidays();
+  }
+  // 展示用分组：内置编译分组 + 在线数据分组（在线分组名带年份前缀并标 🌐）
+  function effectiveHolidayGroupList() {
+    var list = [];
+    HOLIDAY_GROUPS.forEach(function (g) {
+      list.push({ name: g.name, holidays: g.holidays, workdays: g.workdays, online: false });
+    });
+    var src = cfg.remoteHolidays;
+    if (src && typeof src === "object") {
+      Object.keys(src).sort().forEach(function (y) {
+        if (!Array.isArray(src[y])) return;
+        src[y].forEach(function (g) {
+          if (!g || typeof g.name !== "string") return;
+          list.push({ name: y + " · " + g.name, holidays: Array.isArray(g.holidays) ? g.holidays : [], workdays: Array.isArray(g.workdays) ? g.workdays : [], online: true });
+        });
+      });
+    }
+    return list;
   }
   function renderBuiltinHolidays() {
     var list = el.holidayBuiltinList;
     list.innerHTML = "";
     var frag = document.createDocumentFragment();
     var totalBuiltin = 0;
-    HOLIDAY_GROUPS.forEach(function (group) {
+    effectiveHolidayGroupList().forEach(function (group) {
       var dates = [];
       group.holidays.forEach(function (d) {
+        if (!group.online && REMOTE_HOLIDAYS.hasOwnProperty(d)) return; // 该日已被在线数据修正，只在在线分组里展示
         if (!cfg.deletedBuiltinHolidays || !cfg.deletedBuiltinHolidays.hasOwnProperty(d)) dates.push({ date: d, type: "holiday", overridden: !!(cfg.holidays && cfg.holidays.hasOwnProperty(d)) });
       });
       group.workdays.forEach(function (d) {
+        if (!group.online && REMOTE_HOLIDAYS.hasOwnProperty(d)) return;
         if (!cfg.deletedBuiltinHolidays || !cfg.deletedBuiltinHolidays.hasOwnProperty(d)) dates.push({ date: d, type: "workday", overridden: !!(cfg.holidays && cfg.holidays.hasOwnProperty(d)) });
       });
       if (dates.length === 0) return;
@@ -870,7 +966,7 @@
       });
       var catDiv = document.createElement("div");
       catDiv.className = "holiday-category-header";
-      catDiv.innerHTML = '<span class="holiday-category-icon">📌</span><span class="holiday-category-name">' + group.name + '</span><span class="holiday-category-count">' + dates.length + "天</span>";
+      catDiv.innerHTML = '<span class="holiday-category-icon">' + (group.online ? "🌐" : "📌") + '</span><span class="holiday-category-name">' + group.name + '</span><span class="holiday-category-count">' + dates.length + "天</span>";
       frag.appendChild(catDiv);
       dates.forEach(function (item) {
         var isH = item.type === "holiday";
@@ -896,7 +992,7 @@
     var customDates = [];
     if (cfg.holidays)
       Object.keys(cfg.holidays).forEach(function (k) {
-        if (!BUILTIN_HOLIDAYS.hasOwnProperty(k)) customDates.push({ date: k, type: cfg.holidays[k] });
+        if (!isPresetHolidayKey(k)) customDates.push({ date: k, type: cfg.holidays[k] });
       });
     customDates.sort(function (a, b) {
       return a.date.localeCompare(b.date);
@@ -964,22 +1060,75 @@
     update();
     var typeName = type === "holiday" ? "节假日（休息）" : "调休日（上班）";
     showToast("已设置 " + dateVal + " 为" + typeName);
-    if (BUILTIN_HOLIDAYS.hasOwnProperty(dateVal)) switchHolidaySubtab("builtin");
+    if (isPresetHolidayKey(dateVal)) switchHolidaySubtab("builtin");
     else switchHolidaySubtab("custom");
     el.holidayDateInput.value = "";
   });
   if (el.holidayResetBtn) {
     el.holidayResetBtn.addEventListener("click", function () {
-      if (!confirm("确定要恢复全部默认法定节假日吗？\n这将撤销你对内置节假日的所有删除和修改。")) return;
+      if (!confirm("确定要恢复全部默认法定节假日吗？\n这将撤销你对内置节假日的所有删除和修改，并清除已下载的在线节假日数据。")) return;
       cfg.deletedBuiltinHolidays = {};
       if (cfg.holidays)
         Object.keys(cfg.holidays).forEach(function (k) {
-          if (BUILTIN_HOLIDAYS.hasOwnProperty(k)) delete cfg.holidays[k];
+          if (isPresetHolidayKey(k)) delete cfg.holidays[k];
         });
+      cfg.remoteHolidays = {};
+      rebuildRemoteHolidays();
       persist();
       renderHolidayList();
       update();
       showToast("已恢复全部默认法定节假日");
+    });
+  }
+
+  // ---------- 在线更新节假日 ----------
+  function renderHolidayOnlineStatus() {
+    if (!el.holidayOnlineStatus) return;
+    var thisYear = String(new Date().getFullYear());
+    var covered = builtinHolidayYears().concat(REMOTE_YEARS);
+    var missing = covered.indexOf(thisYear) < 0;
+    var txt;
+    if (REMOTE_YEARS.length > 0) txt = "🌐 在线数据已加载：" + REMOTE_YEARS.join("、") + " 年";
+    else txt = "🌐 在线数据：未更新（当前为内置数据 " + builtinHolidayYears().join("、") + " 年）";
+    if (missing) txt += "\n⚠️ " + thisYear + " 年暂无法定节假日数据，日历与进度将按普通周末计算，请点击在线更新或手动添加";
+    el.holidayOnlineStatus.textContent = txt;
+    el.holidayOnlineStatus.classList.toggle("holiday-online-warn", missing);
+  }
+  function requestHolidayFeed() {
+    // 原生端走 CapacitorHttp 绕过 CORS；网页/调试环境回退 fetch
+    var cap = window.Capacitor;
+    if (cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins && cap.Plugins.CapacitorHttp) {
+      return cap.Plugins.CapacitorHttp.get({ url: HOLIDAY_FEED_URL, headers: { "Cache-Control": "no-cache" } }).then(function (res) {
+        return typeof res.data === "string" ? res.data : JSON.stringify(res.data);
+      });
+    }
+    return fetch(HOLIDAY_FEED_URL, { cache: "no-cache" }).then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.text();
+    });
+  }
+  if (el.holidayUpdateBtn) {
+    el.holidayUpdateBtn.addEventListener("click", function () {
+      var btn = el.holidayUpdateBtn;
+      btn.disabled = true;
+      btn.textContent = "⏳ 更新中…";
+      requestHolidayFeed()
+        .then(function (text) {
+          var v = validateRemoteHolidayData(JSON.parse(text));
+          cfg.remoteHolidays = v.years;
+          persist();
+          rebuildRemoteHolidays();
+          renderHolidayList();
+          update();
+          showToast("✅ 节假日已更新：" + REMOTE_YEARS.join("、") + " 年，共 " + v.count + " 天");
+        })
+        .catch(function (err) {
+          showToast("❌ 在线更新失败：" + (err && err.message ? err.message : "网络错误"));
+        })
+        .then(function () {
+          btn.disabled = false;
+          btn.textContent = "🌐 在线更新节假日";
+        });
     });
   }
 
@@ -1653,6 +1802,7 @@
       cfg.showMonthProgress = !!validated.showMonthProgress;
       cfg.salaryEnabled = !!validated.salaryEnabled;
       cfg.monthlySalary = validated.monthlySalary || 0;
+      // remoteHolidays 不随导入覆盖（可在线重新获取），保持本机现有在线数据
       persist();
       renderModeUI();
       renderWeekdayBar();
@@ -2271,6 +2421,7 @@
 
   // ---------- 启动 ----------
   cfg = parseConfig(readLocalSync());
+  rebuildRemoteHolidays();
   renderModeUI();
   renderWeekdayBar();
   renderDayForm();
@@ -2292,6 +2443,8 @@
       cfg.showMonthProgress = !!next.showMonthProgress;
       cfg.salaryEnabled = !!next.salaryEnabled;
       cfg.monthlySalary = next.monthlySalary || 0;
+      cfg.remoteHolidays = next.remoteHolidays || {};
+      rebuildRemoteHolidays();
       renderModeUI();
       renderWeekdayBar();
       renderDayForm();

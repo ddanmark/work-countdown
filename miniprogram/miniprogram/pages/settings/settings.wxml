@@ -100,6 +100,10 @@
     <view class="card">
       <view class="section-title">🏖️ 节假日管理</view>
       <view class="hint">切换下方小标签查看法定/自定义节假日。点击 ✎ 编辑、✕ 删除，也可在上方添加假期或调休日。</view>
+      <view class="holiday-online-box">
+        <text class="holiday-online-status {{holidayOnlineWarn?'warn':''}}">{{holidayOnlineStatus}}</text>
+        <view class="btn btn-ghost holiday-update-btn" bindtap="onlineUpdateHoliday">{{holidayUpdating?'⏳ 更新中…':'🌐 在线更新'}}</view>
+      </view>
       <view class="holiday-add-row">
         <picker class="ha-pick" mode="date" value="{{holidayDate}}" bindchange="changeHolidayDate">
           <view class="picker-trigger"><text wx:if="{{holidayDate}}">{{holidayDate}}</text><text wx:else class="ph">选择日期</text></view>

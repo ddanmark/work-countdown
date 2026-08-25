@@ -27,7 +27,7 @@ const factory = new Function(
   `
   let cfg = null;
   ${body.replace(/^  /gm, "")}
-  return { setCfg: (c) => { cfg = c; }, cfg: () => cfg, getMondayOfWeek, isWorkDay, isWorkDayIgnoringLeave, isPaidLeaveDay, isFullLeaveDay, leaveInfosOf, computeWeekProgress, computeMonthProgress, computeWeekPaidTime, computeMonthPaidTime, computeMonthStandardTime, totalWorkMs, daySchedule, ymd };
+  return { setCfg: (c) => { cfg = c; rebuildRemoteHolidays(); }, cfg: () => cfg, getMondayOfWeek, isWorkDay, isWorkDayIgnoringLeave, isPaidLeaveDay, isFullLeaveDay, leaveInfosOf, computeWeekProgress, computeMonthProgress, computeWeekPaidTime, computeMonthPaidTime, computeMonthStandardTime, totalWorkMs, daySchedule, ymd, getHolidayOverride, isBuiltinHoliday, isPresetHolidayKey, validateRemoteHolidayData, rebuildRemoteHolidays };
   `
 );
 module.exports = factory([]);

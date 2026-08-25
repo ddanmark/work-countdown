@@ -110,7 +110,8 @@ Page({
     let statusClass = "before", statusText = "", targetMs = 0, subInfo = "";
 
     if (!todayIsWork) {
-      const isLegal = sched.isBuiltinHoliday(now) || (cfg.holidays && cfg.holidays[sched.ymd(now)] === "holiday");
+      const ov = sched.getHolidayOverride(cfg, now);
+      const isLegal = ov === "holiday";
       const lvReason = sched.normalizeLeaveReason(sched.leaveReasonOf(cfg, now));
       statusClass = "holiday";
       statusText = isLegal
@@ -129,7 +130,7 @@ Page({
       const ws = sched.toDate(today.workStart, base);
       const we = sched.toDate(today.workEnd, base);
       const brk = sched.currentBreak(today, now);
-      const isMakeup = (cfg.holidays && cfg.holidays[sched.ymd(now)] === "workday") || holidays.BUILTIN_HOLIDAYS[sched.ymd(now)] === "workday";
+      const isMakeup = sched.getHolidayOverride(cfg, now) === "workday";
       const makeupSuffix = isMakeup ? "（调休上班）" : "";
       if (now < ws) {
         statusClass = "before"; statusText = "😴 还没到上班时间" + makeupSuffix; targetMs = we - now;

@@ -37,6 +37,7 @@ function defaultConfig() {
     bigSmallAnchor: null,
     holidays: {},
     deletedBuiltinHolidays: {},
+    remoteHolidays: {},
     leaves: {},
     // 默认开启：本月工作进度 + 工资显示，默认月工资 5000
     showMonthProgress: true,
@@ -68,6 +69,7 @@ function parseConfig(saved) {
       bigSmallAnchor: (saved.bigSmallAnchor && saved.bigSmallAnchor.monday) ? saved.bigSmallAnchor : null,
       holidays: (saved.holidays && typeof saved.holidays === "object") ? saved.holidays : {},
       deletedBuiltinHolidays: (saved.deletedBuiltinHolidays && typeof saved.deletedBuiltinHolidays === "object") ? saved.deletedBuiltinHolidays : {},
+      remoteHolidays: (saved.remoteHolidays && typeof saved.remoteHolidays === "object" && !Array.isArray(saved.remoteHolidays)) ? saved.remoteHolidays : {},
       leaves: (saved.leaves && typeof saved.leaves === "object") ? saved.leaves : {},
       showMonthProgress: !!saved.showMonthProgress,
       salaryEnabled: !!saved.salaryEnabled,
@@ -96,6 +98,7 @@ function expandBreaks(cb) {
 }
 
 function compactConfig(cfg) {
+  // remoteHolidays 故意不参与压缩导出：属可再获取的在线数据，避免撑大配置文本
   var out = { s: {}, m: cfg.mode || "fixed" };
   if (cfg.bigSmallAnchor) out.a = cfg.bigSmallAnchor;
   for (var k in cfg.schedules) {

@@ -116,14 +116,39 @@ public class WidgetConfig {
                 d.get(Calendar.YEAR), d.get(Calendar.MONTH) + 1, d.get(Calendar.DAY_OF_MONTH));
     }
 
-    /** 节假日覆盖：用户自定义优先 > 已删除内置(返回null) > 内置法定。值为 "holiday"/"workday" 或 null */
+    /** 节假日覆盖：用户自定义优先 > 已删除内置(返回null) > 在线数据 > 内置法定。值为 "holiday"/"workday" 或 null */
     private static String getHolidayOverride(JSONObject config, Calendar date) {
         String key = ymd(date);
         JSONObject holidays = config.optJSONObject("holidays");
         if (holidays != null && holidays.has(key)) return holidays.optString(key, null);
         JSONObject deleted = config.optJSONObject("deletedBuiltinHolidays");
         if (deleted != null && deleted.has(key)) return null;
+        String remote = remoteHolidayType(config, key);
+        if (remote != null) return remote;
         return BUILTIN_HOLIDAYS.get(key);
+    }
+
+    /** 在线节假日数据（cfg.remoteHolidays，结构同仓库 holidays.json 的 years）。
+     *  App 端抓取校验后写入配置，Widget 每 tick 重读配置即可拿到；畸形数据自动忽略。 */
+    private static String remoteHolidayType(JSONObject config, String key) {
+        JSONObject remote = config.optJSONObject("remoteHolidays");
+        if (remote == null) return null;
+        java.util.Iterator<String> years = remote.keys();
+        while (years.hasNext()) {
+            JSONArray groups = remote.optJSONArray(years.next());
+            if (groups == null) continue;
+            for (int i = 0; i < groups.length(); i++) {
+                JSONObject g = groups.optJSONObject(i);
+                if (g == null) continue;
+                JSONArray hs = g.optJSONArray("holidays");
+                if (hs != null) for (int j = 0; j < hs.length(); j++)
+                    if (key.equals(hs.optString(j, ""))) return "holiday";
+                JSONArray ws = g.optJSONArray("workdays");
+                if (ws != null) for (int j = 0; j < ws.length(); j++)
+                    if (key.equals(ws.optString(j, ""))) return "workday";
+            }
+        }
+        return null;
     }
 
     private static boolean isLeaveDay(JSONObject config, Calendar date) {

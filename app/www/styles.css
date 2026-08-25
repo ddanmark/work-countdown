@@ -1719,3 +1719,27 @@ body::after  { width: 300px; height: 300px; bottom: -100px; right: -80px; }
   .cal-nav { width: 26px; height: 26px; font-size: 11px; }
   .cal-dow { font-size: 10px; }
 }
+
+/* ---------- 节假日在线更新 ---------- */
+.holiday-online-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 2px;
+}
+.holiday-online-box .btn {
+  margin: 0;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.holiday-online-status {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: pre-line;
+  line-height: 1.5;
+}
+.holiday-online-status.holiday-online-warn {
+  color: var(--accent);
+}

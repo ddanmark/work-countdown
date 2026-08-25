@@ -6,6 +6,34 @@ const { pad } = require("./format.js");
 const holidays = require("./holidays.js");
 const { BUILTIN_HOLIDAYS } = holidays;
 
+// ---------- 在线节假日（cfg.remoteHolidays，结构同仓库 holidays.json 的 years） ----------
+// 优先级：用户自定义 > 已删除内置 > 在线数据 > 内置编译数据；WeakMap 按 cfg 引用缓存解析结果
+const remoteCache = new WeakMap();
+function remoteHolidayInfo(cfg) {
+  if (!cfg || !cfg.remoteHolidays || typeof cfg.remoteHolidays !== "object") return null;
+  var info = remoteCache.get(cfg);
+  if (info && info.src === cfg.remoteHolidays) return info;
+  var map = {}, years = [];
+  Object.keys(cfg.remoteHolidays).sort().forEach(function (y) {
+    if (!/^\d{4}$/.test(y) || !Array.isArray(cfg.remoteHolidays[y])) return;
+    var n = 0;
+    cfg.remoteHolidays[y].forEach(function (g) {
+      if (!g || typeof g.name !== "string" || !Array.isArray(g.holidays) || !Array.isArray(g.workdays)) return;
+      g.holidays.forEach(function (d) { map[d] = "holiday"; n++; });
+      g.workdays.forEach(function (d) { map[d] = "workday"; n++; });
+    });
+    if (n > 0) years.push(y);
+  });
+  info = { src: cfg.remoteHolidays, map: map, years: years };
+  remoteCache.set(cfg, info);
+  return info;
+}
+function isPresetHolidayKey(cfg, key) {
+  if (BUILTIN_HOLIDAYS.hasOwnProperty(key)) return true;
+  var remote = remoteHolidayInfo(cfg);
+  return !!(remote && remote.map.hasOwnProperty(key));
+}
+
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const WEEK_LABEL = { 0: "日", 1: "一", 2: "二", 3: "三", 4: "四", 5: "五", 6: "六" };
 const WEEK_FULL = { 0: "周日", 1: "周一", 2: "周二", 3: "周三", 4: "周四", 5: "周五", 6: "周六" };
@@ -30,13 +58,17 @@ function getHolidayOverride(cfg, date) {
   var key = ymd(date);
   if (cfg.holidays && cfg.holidays.hasOwnProperty(key)) return cfg.holidays[key];
   if (cfg.deletedBuiltinHolidays && cfg.deletedBuiltinHolidays.hasOwnProperty(key)) return null;
+  var remote = remoteHolidayInfo(cfg);
+  if (remote && remote.map.hasOwnProperty(key)) return remote.map[key];
   if (BUILTIN_HOLIDAYS.hasOwnProperty(key)) return BUILTIN_HOLIDAYS[key];
   return null;
 }
 
-function isBuiltinHoliday(date) {
+function isBuiltinHoliday(cfg, date) {
   var key = ymd(date);
-  return BUILTIN_HOLIDAYS.hasOwnProperty(key) && BUILTIN_HOLIDAYS[key] === "holiday";
+  if (BUILTIN_HOLIDAYS.hasOwnProperty(key) && BUILTIN_HOLIDAYS[key] === "holiday") return true;
+  var remote = remoteHolidayInfo(cfg);
+  return !!(remote && remote.map.hasOwnProperty(key) && remote.map[key] === "holiday");
 }
 
 function isLeaveDay(cfg, date) {
@@ -381,7 +413,7 @@ function computeMonthStandardTime(cfg, now) {
 module.exports = {
   WEEK_ORDER, WEEK_LABEL, WEEK_FULL,
   ymd, toDate,
-  getHolidayOverride, isBuiltinHoliday, isLeaveDay, leaveReasonOf, normalizeLeaveReason,
+  getHolidayOverride, isBuiltinHoliday, isPresetHolidayKey, remoteHolidayInfo, isLeaveDay, leaveReasonOf, normalizeLeaveReason,
   parseLeaveEntry, parseLeaveValue, leaveInfosOf, isFullLeaveDay, isPaidLeaveDay, effectiveDaySchedule,
   addLeaveEntry, removeLeaveEntry,
   getMondayOfWeek, isBigWeek, setThisWeekType,

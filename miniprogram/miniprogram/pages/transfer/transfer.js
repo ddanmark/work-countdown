@@ -81,6 +81,7 @@ Page({
       cfg.showMonthProgress = !!validated.showMonthProgress;
       cfg.salaryEnabled = !!validated.salaryEnabled;
       cfg.monthlySalary = validated.monthlySalary || 0;
+      // remoteHolidays 不随导入覆盖（可在线重新获取），保持本机现有在线数据
       app.saveConfig(cfg);
 
       wx.showToast({ title: "✅ 配置导入成功", icon: "none" });
