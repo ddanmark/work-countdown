@@ -1,0 +1,27 @@
+# Node
+node_modules/
+
+# Android 构建产物与本机配置
+app/android/app/build/
+app/android/build/
+app/android/capacitor-cordova-android-plugins/build/
+app/android/.gradle/
+app/android/local.properties
+*.apk
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# 工具产物
+.zcode/
+.playwright-mcp/
+
+# 微信开发者工具个人配置
+miniprogram/project.private.config.json
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini

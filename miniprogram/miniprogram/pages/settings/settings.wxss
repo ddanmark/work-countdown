@@ -1,0 +1,155 @@
+/* settings 页样式 */
+
+/* 排班模式切换 */
+.mode-tabs { display: flex; gap: 12rpx; margin-top: 8rpx; }
+.mode-tab {
+  flex: 1; text-align: center; padding: 20rpx 0;
+  border-radius: 14rpx; background: rgba(255,255,255,0.1);
+  border: 1rpx solid var(--card-border); font-size: 28rpx; color: var(--text-dim);
+}
+.mode-tab.active { background: var(--accent); color: #4a3a00; font-weight: 600; border-color: var(--accent); }
+
+.bigsmall-config { margin-top: 20rpx; }
+.week-type-selector { display: flex; gap: 16rpx; margin-top: 12rpx; }
+.week-type-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6rpx;
+  padding: 22rpx 0; border-radius: 14rpx;
+  background: rgba(255,255,255,0.1); border: 1rpx solid var(--card-border);
+  font-size: 30rpx; font-weight: 600;
+}
+.week-type-btn.active { background: var(--accent); color: #4a3a00; border-color: var(--accent); }
+.wt-sub { font-size: 22rpx; font-weight: 400; opacity: 0.85; }
+
+/* 周几选择条 */
+.weekday-bar { display: flex; gap: 10rpx; margin-top: 8rpx; flex-wrap: wrap; }
+.weekday {
+  flex: 1; min-width: 60rpx; text-align: center; padding: 18rpx 0;
+  border-radius: 14rpx; background: rgba(255,255,255,0.1);
+  border: 1rpx solid var(--card-border); font-size: 28rpx; color: var(--text);
+}
+.weekday.active { background: var(--accent); color: #4a3a00; font-weight: 600; border-color: var(--accent); }
+.weekday.today { outline: 2rpx solid rgba(255,255,255,0.7); }
+.weekday.off-day { opacity: 0.5; }
+.weekday.alt { background: rgba(102,126,234,0.35); border-color: rgba(255,209,102,0.4); }
+.weekday.has-alt::after { content: "•"; color: var(--accent); }
+
+/* 星期条状态图例 */
+.weekday-legend { display: flex; flex-wrap: wrap; gap: 4rpx 24rpx; margin: 10rpx 0 18rpx; }
+.legend-item { font-size: 22rpx; color: var(--text-dim); opacity: 0.85; }
+
+/* 单日编辑卡片：从属于星期条的"卡片中的卡片" */
+.day-editor {
+  margin-top: 4rpx; padding: 28rpx;
+  background: rgba(255,255,255,0.04);
+  border: 1rpx solid var(--card-border);
+  border-radius: 28rpx;
+}
+.day-editor-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+.day-editor-title { font-size: 32rpx; font-weight: 700; color: var(--text); }
+
+/* 大小周变体切换：编辑卡片内的小 chip 行 */
+.variant-selector { display: flex; gap: 14rpx; align-items: center; margin: 0 0 22rpx; }
+.variant-label { font-size: 22rpx; color: var(--text-dim); }
+.variant-tab {
+  padding: 10rpx 28rpx; border-radius: 999rpx; font-size: 24rpx;
+  background: rgba(255,255,255,0.06); border: 1rpx solid var(--card-border); color: var(--text-dim);
+}
+.variant-tab.active { background: var(--accent); color: #4a3a00; font-weight: 600; border-color: var(--accent); }
+.variant-clear { font-size: 24rpx; color: var(--text-dim); padding: 10rpx 16rpx; margin-left: auto; }
+
+/* 编辑卡片标题行内的精简开关 */
+.toggle-row.inline {
+  margin: 0; padding: 0; gap: 16rpx; justify-content: flex-start;
+}
+.toggle-row.inline text { font-size: 26rpx; font-weight: 400; color: var(--text-dim); }
+
+/* 排班页底部：一个主按钮 + 文字链 */
+.schedule-footer { margin-top: 28rpx; display: flex; flex-direction: column; gap: 12rpx; align-items: center; }
+.schedule-footer .text-link { font-size: 26rpx; color: var(--text-dim); padding: 8rpx 16rpx; }
+.schedule-footer .text-link:active { color: var(--accent); }
+.add-break { margin-top: 20rpx; background: var(--accent); color: #4a3a00; }
+
+.day-body { transition: opacity 0.2s; }
+.day-body.disabled { opacity: 0.4; pointer-events: none; }
+
+/* 上班时间段：上班/选择框/下班/选择框 四元素同一排 */
+.time-row { display: flex; gap: 20rpx; align-items: center; }
+.time-field { flex: 1; display: flex; align-items: center; gap: 12rpx; min-width: 0; }
+.work-time-pick { flex: 1; min-width: 0; }
+.work-time-pick .picker-trigger { white-space: nowrap; }
+.tf-label { font-size: 24rpx; color: var(--text-dim); flex-shrink: 0; }
+.picker-trigger.sm { padding: 14rpx 18rpx; font-size: 26rpx; text-align: center; justify-content: center; }
+
+/* 休息时间段：名称 + 开始 — 结束 + 删除 同一排 */
+.break-list { display: flex; flex-direction: column; gap: 16rpx; margin-top: 16rpx; }
+.break-row {
+  display: flex; align-items: center; gap: 12rpx;
+  background: rgba(255,255,255,0.08); border-radius: 14rpx; padding: 10rpx 14rpx;
+}
+/* 名称输入框与时间选择框统一高度（input 默认 content-box，需显式 border-box）；
+   宽度均衡分配：名称约 1/3 且可缩，两个时间框 flex-basis 0 平分剩余空间 */
+.break-row .break-name-input {
+  flex: 1 1 20rpx; min-width: 80rpx;
+  box-sizing: border-box; height: 68rpx;
+  padding: 0 16rpx; line-height: 68rpx; font-size: 26rpx;
+}
+.break-row .picker-trigger.sm { box-sizing: border-box; height: 68rpx; padding: 0 12rpx; }
+.bt-pick { flex: 1 1 0; min-width: 0; }
+.del-btn {
+  flex-shrink: 0;
+  width: 52rpx; height: 52rpx; line-height: 52rpx; text-align: center;
+  border-radius: 50%; background: rgba(255,107,107,0.25); color: var(--danger); font-size: 26rpx;
+}
+.bt-pick .picker-trigger.sm { white-space: nowrap; }
+.dash { flex-shrink: 0; color: var(--text-dim); }
+
+/* 节假日 / 请假 添加行：日期 + 类型 + 添加按钮 始终保持同一行 */
+.holiday-add-row { display: flex; gap: 12rpx; align-items: center; margin: 16rpx 0; }
+.holiday-add-row .btn { flex-shrink: 0; }
+.ha-pick { flex: 1 1 0; min-width: 0; }
+.ha-pick .picker-trigger { min-width: 0; white-space: nowrap; }
+
+.subtab-bar { display: flex; gap: 8rpx; margin: 18rpx 0; background: rgba(255,255,255,0.1); border-radius: 14rpx; padding: 6rpx; }
+.subtab-btn { flex: 1; text-align: center; padding: 16rpx 0; border-radius: 10rpx; font-size: 26rpx; color: var(--text-dim); }
+.subtab-btn.active { background: var(--accent); color: #4a3a00; font-weight: 600; }
+
+.holiday-cat-header { display: flex; align-items: center; gap: 10rpx; padding: 16rpx 0 8rpx; }
+.hc-icon { font-size: 24rpx; }
+.hc-name { font-size: 28rpx; font-weight: 600; flex: 1; }
+.hc-count { font-size: 24rpx; color: var(--text-dim); }
+
+.holiday-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18rpx 8rpx; border-bottom: 1rpx solid rgba(255,255,255,0.08);
+}
+.holiday-label { display: flex; align-items: center; gap: 12rpx; font-size: 26rpx; }
+.holiday-tag { font-size: 22rpx; padding: 4rpx 12rpx; border-radius: 8rpx; }
+.tag-holiday { background: rgba(255,107,107,0.3); color: #fff; }
+.tag-workday { background: rgba(6,214,160,0.3); color: #fff; }
+.override-badge { font-size: 20rpx; padding: 2rpx 10rpx; border-radius: 6rpx; background: rgba(255,209,102,0.25); color: var(--accent); }
+.holiday-actions { display: flex; gap: 18rpx; }
+.act-edit, .act-del { font-size: 28rpx; padding: 6rpx 10rpx; }
+.act-edit { color: var(--text-dim); }
+.act-del { color: var(--danger); }
+
+.leave-tag { font-size: 22rpx; padding: 4rpx 12rpx; border-radius: 8rpx; background: rgba(255,209,102,0.25); color: var(--accent); }
+.empty-hint { font-size: 26rpx; color: var(--text-dim); padding: 24rpx 8rpx; text-align: center; }
+
+/* 工资 */
+.salary-config { margin-top: 12rpx; }
+.salary-row { display: flex; align-items: center; gap: 16rpx; }
+.salary-label { font-size: 26rpx; flex-shrink: 0; }
+.salary-input { flex: 1; }
+
+/* 按时段请假：全天开关 + 起止时间 */
+.leave-allday-row { display: flex; align-items: center; gap: 8rpx; }
+.leave-allday-text { font-size: 26rpx; color: rgba(255,255,255,0.78); }
+.leave-time-sep { font-size: 24rpx; color: rgba(255,255,255,0.6); align-self: center; }
+
+/* 请假说明：圆点条目 */
+.leave-hint-list .hint-item { margin-bottom: 6rpx; }
+.leave-hint-list .hint-item:last-child { margin-bottom: 0; }
+.leave-hint-list .hint-dot { color: #ffd166; }

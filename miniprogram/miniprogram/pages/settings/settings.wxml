@@ -1,0 +1,230 @@
+<!-- 设置页：排班 / 节假日 / 请假 / 其他 -->
+<view class="root">
+  <view class="tab-bar">
+    <view class="tab-btn {{activeTab==='schedule'?'active':''}}" bindtap="switchTab" data-tab="schedule">📅 排班</view>
+    <view class="tab-btn {{activeTab==='holiday'?'active':''}}" bindtap="switchTab" data-tab="holiday">🏖️ 节假日</view>
+    <view class="tab-btn {{activeTab==='leave'?'active':''}}" bindtap="switchTab" data-tab="leave">📝 请假</view>
+    <view class="tab-btn {{activeTab==='other'?'active':''}}" bindtap="switchTab" data-tab="other">⚙️ 其他</view>
+  </view>
+
+  <!-- ============ 排班 ============ -->
+  <view wx:if="{{activeTab==='schedule'}}">
+    <view class="card">
+      <view class="section-title">📅 排班模式</view>
+      <view class="mode-tabs">
+        <view class="mode-tab {{mode==='fixed'?'active':''}}" bindtap="setMode" data-mode="fixed">固定排班</view>
+        <view class="mode-tab {{mode==='bigSmall'?'active':''}}" bindtap="setMode" data-mode="bigSmall">大小周</view>
+      </view>
+      <view wx:if="{{mode==='bigSmall'}}" class="bigsmall-config">
+        <view class="hint">本周是大周还是小周？（之后自动按周交替）</view>
+        <view class="week-type-selector">
+          <view class="week-type-btn {{thisWeekBig?'active':''}}" bindtap="setWeekType" data-type="big">
+            <text>大周</text><text class="wt-sub">周六上班（6天）</text>
+          </view>
+          <view class="week-type-btn {{!thisWeekBig?'active':''}}" bindtap="setWeekType" data-type="small">
+            <text>小周</text><text class="wt-sub">周六休息（5天）</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="section-title">📆 每日安排</view>
+      <view class="weekday-bar">
+        <view wx:for="{{weekdayBar}}" wx:key="day" class="{{item.cls}}" bindtap="selectDay" data-day="{{item.day}}">{{item.label}}</view>
+      </view>
+      <view class="weekday-legend">
+        <text wx:for="{{weekdayLegend}}" wx:key="*this" class="legend-item">{{item}}</text>
+      </view>
+
+      <view class="day-editor">
+        <view class="day-editor-head">
+          <text class="day-editor-title">{{dayEditorTitle}}</text>
+          <view wx:if="{{!isSatAlt}}" class="toggle-row inline">
+            <text>工作日</text>
+            <switch checked="{{workdayChecked}}" bindchange="toggleWorkday" color="#ffd166"/>
+          </view>
+        </view>
+        <view wx:if="{{isSatAlt}}" class="hint">{{satInfo}}</view>
+
+        <view wx:if="{{isAltDay}}" class="variant-selector">
+          <text class="variant-label">本日差异</text>
+          <view class="variant-tab {{editingVariant==='big'?'active':''}}" bindtap="setVariant" data-variant="big">大周</view>
+          <view class="variant-tab {{editingVariant==='small'?'active':''}}" bindtap="setVariant" data-variant="small">小周</view>
+          <view wx:if="{{showVariantClear}}" class="variant-clear" bindtap="clearVariant">重置</view>
+        </view>
+
+        <view class="day-body {{dayBodyDisabled?'disabled':''}}">
+          <view class="time-row">
+            <view class="time-field">
+              <text class="tf-label">上班</text>
+              <picker class="work-time-pick" mode="time" value="{{workStart}}" bindchange="changeWorkStart">
+                <view class="picker-trigger">{{workStart}}<text class="arrow">▾</text></view>
+              </picker>
+            </view>
+            <view class="time-field">
+              <text class="tf-label">下班</text>
+              <picker class="work-time-pick" mode="time" value="{{workEnd}}" bindchange="changeWorkEnd">
+                <view class="picker-trigger">{{workEnd}}<text class="arrow">▾</text></view>
+              </picker>
+            </view>
+          </view>
+          <view class="btn btn-ghost add-break" bindtap="addBreak">＋ 添加休息时间段</view>
+
+          <view class="break-list">
+            <view wx:for="{{breaks}}" wx:key="idx" class="break-row">
+              <input class="input break-name-input" value="{{item.name}}" data-idx="{{item.idx}}" bindinput="changeBreakName" maxlength="10" placeholder="名称"/>
+              <picker class="bt-pick" mode="time" value="{{item.start}}" data-idx="{{item.idx}}" bindchange="changeBreakStart">
+                <view class="picker-trigger sm">{{item.start}}</view>
+              </picker>
+              <text class="dash">~</text>
+              <picker class="bt-pick" mode="time" value="{{item.end}}" data-idx="{{item.idx}}" bindchange="changeBreakEnd">
+                <view class="picker-trigger sm">{{item.end}}</view>
+              </picker>
+              <view class="del-btn" data-idx="{{item.idx}}" bindtap="delBreak">✕</view>
+            </view>
+          </view>
+          <view class="duration-hint">{{workDurationHint}}</view>
+        </view>
+      </view>
+
+      <view class="schedule-footer">
+        <view class="btn btn-primary btn-block" bindtap="applyAll">📋 应用到所有工作日</view>
+        <view class="text-link" bindtap="resetDefaults">恢复默认</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 节假日 ============ -->
+  <view wx:if="{{activeTab==='holiday'}}">
+    <view class="card">
+      <view class="section-title">🏖️ 节假日管理</view>
+      <view class="hint">切换下方小标签查看法定/自定义节假日。点击 ✎ 编辑、✕ 删除，也可在上方添加假期或调休日。</view>
+      <view class="holiday-add-row">
+        <picker class="ha-pick" mode="date" value="{{holidayDate}}" bindchange="changeHolidayDate">
+          <view class="picker-trigger"><text wx:if="{{holidayDate}}">{{holidayDate}}</text><text wx:else class="ph">选择日期</text></view>
+        </picker>
+        <picker class="ha-pick" mode="selector" range="{{holidayTypeOptions}}" value="{{holidayTypeIndex}}" bindchange="changeHolidayType">
+          <view class="picker-trigger"><text>{{holidayTypeOptions[holidayTypeIndex]}}</text><text class="arrow">▾</text></view>
+        </picker>
+        <view class="btn btn-ghost" bindtap="addHoliday">添加</view>
+      </view>
+
+      <view class="subtab-bar">
+        <view class="subtab-btn {{holidaySubtab==='builtin'?'active':''}}" bindtap="switchHolidaySubtab" data-subtab="builtin">📅 法定节假日</view>
+        <view class="subtab-btn {{holidaySubtab==='custom'?'active':''}}" bindtap="switchHolidaySubtab" data-subtab="custom">📝 自定义节假日</view>
+      </view>
+
+      <view wx:if="{{holidaySubtab==='builtin'}}">
+        <view wx:for="{{builtinGroups}}" wx:key="name" wx:for-item="group">
+          <view class="holiday-cat-header">
+            <text class="hc-icon">📌</text><text class="hc-name">{{group.name}}</text><text class="hc-count">{{group.count}}天</text>
+          </view>
+          <view wx:for="{{group.items}}" wx:key="date" wx:for-item="item" class="holiday-item">
+            <view class="holiday-label">
+              <text>{{item.date}}</text>
+              <text class="holiday-tag {{item.type==='holiday'?'tag-holiday':'tag-workday'}}">{{item.type==='holiday'?'🎉 休':'💼 班'}}</text>
+              <text wx:if="{{item.overridden}}" class="override-badge">已修改</text>
+            </view>
+            <view class="holiday-actions">
+              <text class="act-edit" data-date="{{item.date}}" data-type="{{item.type}}" data-builtin="1" bindtap="editHoliday">✎</text>
+              <text class="act-del" data-date="{{item.date}}" data-builtin="1" bindtap="delHoliday">✕</text>
+            </view>
+          </view>
+        </view>
+        <view class="btn btn-ghost btn-block" style="margin-top:16rpx;" bindtap="resetBuiltin">🔄 恢复全部默认节假日</view>
+      </view>
+
+      <view wx:if="{{holidaySubtab==='custom'}}">
+        <view wx:if="{{customHolidays.length===0}}" class="empty-hint">暂无自定义节假日，使用上方表单添加</view>
+        <view wx:for="{{customHolidays}}" wx:key="date" class="holiday-item">
+          <view class="holiday-label">
+            <text>{{item.date}}</text>
+            <text class="holiday-tag {{item.type==='holiday'?'tag-holiday':'tag-workday'}}">{{item.type==='holiday'?'🎉 休':'💼 班'}}</text>
+          </view>
+          <view class="holiday-actions">
+            <text class="act-edit" data-date="{{item.date}}" data-type="{{item.type}}" data-builtin="0" bindtap="editHoliday">✎</text>
+            <text class="act-del" data-date="{{item.date}}" data-builtin="0" bindtap="delHoliday">✕</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ============ 请假 ============ -->
+  <view wx:if="{{activeTab==='leave'}}">
+    <view class="card">
+      <view class="section-title">📝 请假管理</view>
+      <view class="hint leave-hint-list">
+        <view class="hint-item"><text class="hint-dot">• </text>全天假：勾选"全天"，当天整天按休息处理。</view>
+        <view class="hint-item"><text class="hint-dot">• </text>时段假：取消勾选后选择起止时间（如 08:30-12:00），只扣该时段工时；同一天可添加多段，时段不可重叠。</view>
+        <view class="hint-item"><text class="hint-dot">• </text>年假/婚假/产假/丧假为带薪假，请假期间照常计薪，不影响当月工资。</view>
+      </view>
+      <view class="holiday-add-row">
+        <picker class="ha-pick" mode="date" value="{{leaveDate}}" bindchange="changeLeaveDate">
+          <view class="picker-trigger"><text wx:if="{{leaveDate}}">{{leaveDate}}</text><text wx:else class="ph">选择日期</text></view>
+        </picker>
+        <picker class="ha-pick" mode="selector" range="{{leaveReasonOptions}}" value="{{leaveReasonIndex}}" bindchange="changeLeaveReason">
+          <view class="picker-trigger"><text>{{leaveReasonOptions[leaveReasonIndex]}}</text><text class="arrow">▾</text></view>
+        </picker>
+        <view class="leave-allday-row">
+          <switch checked="{{leaveAllDay}}" color="#ffd166" bindchange="onLeaveAllDayChange"/>
+          <text class="leave-allday-text">全天</text>
+        </view>
+        <view class="btn btn-ghost" bindtap="addLeave">添加</view>
+      </view>
+      <view class="holiday-add-row" wx:if="{{!leaveAllDay}}">
+        <picker class="ha-pick" mode="time" value="{{leaveStartTime}}" bindchange="changeLeaveStartTime">
+          <view class="picker-trigger">{{leaveStartTime}}</view>
+        </picker>
+        <text class="leave-time-sep">至</text>
+        <picker class="ha-pick" mode="time" value="{{leaveEndTime}}" bindchange="changeLeaveEndTime">
+          <view class="picker-trigger">{{leaveEndTime}}</view>
+        </picker>
+      </view>
+      <view wx:if="{{leaveList.length===0}}" class="empty-hint">暂无请假记录，使用上方表单添加</view>
+      <view wx:for="{{leaveList}}" wx:key="date" class="holiday-item leave-item">
+        <view class="holiday-label">
+          <text>{{item.date}}</text>
+          <text wx:if="{{item.reason}}" class="leave-tag">{{item.reason}}</text>
+        </view>
+        <view class="holiday-actions">
+          <text class="act-del" data-date="{{item.date}}" data-idx="{{index}}" bindtap="delLeave">✕</text>
+        </view>
+      </view>
+      <view class="btn btn-ghost btn-block" style="margin-top:16rpx;" bindtap="clearLeaves">🗑️ 清空全部请假</view>
+    </view>
+  </view>
+
+  <!-- ============ 其他 ============ -->
+  <view wx:if="{{activeTab==='other'}}">
+    <view class="card">
+      <view class="section-title">📊 显示设置</view>
+      <view class="toggle-row">
+        <text>显示本月工作进度</text>
+        <switch checked="{{showMonthProgress}}" bindchange="toggleMonthProgress" color="#ffd166"/>
+      </view>
+    </view>
+    <view class="card">
+      <view class="section-title">💰 工资显示</view>
+      <view class="toggle-row">
+        <text>开启工资显示</text>
+        <switch checked="{{salaryEnabled}}" bindchange="toggleSalary" color="#ffd166"/>
+      </view>
+      <view wx:if="{{showSalaryConfig}}" class="salary-config">
+        <view class="salary-row">
+          <text class="salary-label">月工资（元）</text>
+          <input class="input salary-input" type="digit" value="{{monthlySalaryText}}" bindinput="changeSalary" placeholder="如 8000" placeholder-style="color:rgba(255,255,255,0.5)"/>
+        </view>
+        <view class="duration-hint">开启后，本日 / 本周 / 本月进度旁会显示已赚取的金额，每秒刷新。</view>
+      </view>
+    </view>
+    <view class="card">
+      <view class="section-title">📦 配置管理</view>
+      <view class="actions" style="margin-top:0;">
+        <view class="btn btn-ghost" bindtap="goTransfer" data-action="export">📤 导出配置</view>
+        <view class="btn btn-ghost" bindtap="goTransfer" data-action="import">📥 导入配置</view>
+      </view>
+    </view>
+  </view>
+</view>

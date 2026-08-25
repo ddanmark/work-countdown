@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <!--
+        WebView 主题：edge-to-edge，状态栏 / 导航栏都透明，
+        让 body 的渐变色透到整个屏幕。真正的 inset 适配交给前端
+        env(safe-area-inset-*)。
+
+        parent 用 Theme.AppCompat.NoActionBar（非 DayNight），
+        避免设备在 light mode 下系统给导航栏自动套浅色导致底部白条。
+        实际生效的对比度关闭在 MainActivity.applyEdgeToEdge() 中用
+        Window.setNavigationBarContrastEnforced(false) 强制设置。
+    -->
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowTranslucentNavigation">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <!-- low API 兼容项；高 API 上 MainActivity 用 Window API 强制覆盖 -->
+        <item name="android:enforceStatusBarContrast">false</item>
+        <item name="android:enforceNavigationBarContrast">false</item>
+        <!-- 刘海屏 / 挖孔屏：内容延伸到刘海区域（API 28+ 生效，老版本自动忽略） -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+
+
+    <!--
+        启动屏主题：用兜底紫蓝色打底，避免首帧白闪，
+        启动屏消失后由 MainActivity 在 onCreate 里把状态栏/导航栏染透明。
+    -->
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:background">@drawable/splash</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@color/colorPrimary</item>
+        <item name="android:navigationBarColor">@color/colorPrimary</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+    </style>
+</resources>

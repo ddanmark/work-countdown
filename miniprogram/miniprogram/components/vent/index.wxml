@@ -1,0 +1,16 @@
+<!-- 解压发泄：透明覆盖层（不遮挡倒计时/日历，不新开页面）-->
+<view wx:if="{{show}}" class="vent-stage">
+  <canvas
+    type="2d"
+    id="fxCanvas"
+    class="fx-canvas {{fxShake?'fx-shake':''}} {{fxSqueeze?'fx-squeeze':''}}"
+  ></canvas>
+
+  <view class="vent-panel">
+    <view class="vent-grid">
+      <view wx:for="{{actions}}" wx:key="key" class="vent-item" bindtap="doAction" data-key="{{item.key}}">
+        <text class="vent-emoji">{{item.emoji}}</text>
+      </view>
+    </view>
+  </view>
+</view>

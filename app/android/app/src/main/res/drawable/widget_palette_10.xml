@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 与 app 内背景同步的第 10 号渐变（vent.js BG_PALETTES） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient android:angle="135" android:startColor="#FF0ba360" android:endColor="#FF3cba92" android:type="linear" />
+    <corners android:radius="20dp" />
+</shape>

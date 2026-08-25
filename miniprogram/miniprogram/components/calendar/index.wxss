@@ -1,0 +1,98 @@
+/* calendar 组件样式（对齐手机端 app/www/styles.css 配色：无图例、配色更浓）*/
+.calendar-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1rpx solid var(--card-border);
+  border-radius: 32rpx;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+}
+
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+.cal-title { flex: 1; text-align: center; font-size: 30rpx; font-weight: 700; letter-spacing: 1rpx; }
+.cal-nav {
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  color: var(--text);
+  border-radius: 16rpx;
+  background: rgba(255, 255, 255, 0.1);
+}
+.cal-nav:active { background: rgba(255, 255, 255, 0.22); }
+
+.cal-dow-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8rpx;
+  margin-bottom: 8rpx;
+}
+.cal-dow {
+  text-align: center;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--text-dim);
+  opacity: 0.7;
+  padding-bottom: 8rpx;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8rpx;
+}
+.cal-cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text);
+  border: 1rpx solid transparent;
+  background: rgba(255, 255, 255, 0.05);
+}
+.cal-cell.outside { opacity: 0.28; }
+.cal-num { line-height: 1.1; }
+.cal-hours {
+  font-size: 18rpx;
+  font-weight: 700;
+  opacity: 0.85;
+  margin-top: 2rpx;
+  font-variant-numeric: tabular-nums;
+}
+.cal-badge {
+  position: absolute;
+  top: 4rpx;
+  right: 6rpx;
+  font-size: 18rpx;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2rpx 6rpx;
+  border-radius: 8rpx;
+}
+
+/* —— 状态配色（对齐 app/www/styles.css）—— */
+.cal-cell.work { color: #4a3a00; }                                              /* 工作日：深金文字（今日/过去由内联覆盖为白） */
+.cal-cell.rest { background: rgba(0, 224, 121, 0.8); color: var(--text-dim); }  /* 休息：绿 */
+.cal-cell.holiday { background: rgba(64, 222, 90, 0.8); color: #fff; }          /* 法定假 休：绿 */
+.cal-cell.makeup { background: rgba(183, 128, 217, 0.55); color: #fff; }        /* 调休 班：紫 */
+.cal-cell.leave { background: rgba(0, 224, 155, 0.9); color: #fff; }            /* 请假 假：青 */
+
+.badge-holiday { background: rgba(255, 107, 107, 0.85); color: #fff; }
+.badge-makeup { background: rgba(78, 205, 196, 0.9); color: #06352f; }
+.badge-leave { background: rgba(255, 159, 67, 0.95); color: #3a1d00; }
+
+.cal-cell.today {
+  border: 2rpx solid var(--accent);
+  box-shadow: 0 0 16rpx rgba(255, 209, 102, 0.5);
+}

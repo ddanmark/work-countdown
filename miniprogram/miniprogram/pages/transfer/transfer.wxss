@@ -1,0 +1,15 @@
+/* transfer 页样式 */
+.config-text {
+  font-size: 22rpx; color: var(--text-dim);
+  background: rgba(255,255,255,0.1); border-radius: 14rpx;
+  padding: 18rpx; margin: 8rpx 0 20rpx;
+  word-break: break-all; line-height: 1.5;
+  max-height: 200rpx; overflow: hidden;
+}
+.paste-box { margin-top: 24rpx; }
+.paste-area {
+  width: 100%; min-height: 160rpx;
+  background: rgba(255,255,255,0.12); border: 1rpx solid var(--card-border);
+  border-radius: 14rpx; padding: 18rpx; font-size: 24rpx; color: var(--text);
+  box-sizing: border-box; word-break: break-all;
+}

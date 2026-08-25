@@ -1,0 +1,27 @@
+<!-- 月历组件 -->
+<view class="calendar-card">
+  <view class="cal-header">
+    <view class="cal-nav" bindtap="prevMonth">◀</view>
+    <view class="cal-title">{{monthLabel}}</view>
+    <view class="cal-nav" bindtap="nextMonth">▶</view>
+  </view>
+
+  <view class="cal-dow-row">
+    <view wx:for="{{weekLabels}}" wx:key="*this" class="cal-dow">{{item}}</view>
+  </view>
+
+  <view class="cal-grid">
+    <view
+      wx:for="{{cells}}"
+      wx:key="dateKey"
+      class="{{item.cls}}"
+      style="{{item.style}}"
+      data-i="{{index}}"
+      bindtap="onCellTap"
+    >
+      <text class="cal-num">{{item.dayText}}</text>
+      <text wx:if="{{item.hoursText}}" class="cal-hours">{{item.hoursText}}</text>
+      <text wx:if="{{item.badge}}" class="cal-badge badge-{{item.badgeType}}">{{item.badge}}</text>
+    </view>
+  </view>
+</view>

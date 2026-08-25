@@ -1,0 +1,19 @@
+# 依赖
+node_modules/
+
+# 原生构建产物
+android/app/build/
+android/.gradle/
+android/local.properties
+android/captures/
+android/app/release/
+ios/App/Pods/
+ios/App/output/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# 临时
+*.log

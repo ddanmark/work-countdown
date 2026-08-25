@@ -1,0 +1,130 @@
+/* index 页样式 */
+/* 倒计时所在卡片：不显示边框（与背景更融合）*/
+.card { border: none; }
+
+.countdown {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 14rpx;
+  margin: 16rpx 0 36rpx;
+}
+.time-block { text-align: center; }
+.time-num {
+  font-size: 120rpx;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 6rpx 18rpx rgba(0,0,0,0.22);
+}
+.time-num .ms {
+  font-size: 52rpx;
+  font-weight: 700;
+  opacity: 0.7;
+  margin-left: 2rpx;
+}
+.time-label {
+  font-size: 22rpx;
+  color: var(--text-dim);
+  margin-top: 10rpx;
+  letter-spacing: 1rpx;
+}
+.colon {
+  font-size: 92rpx;
+  font-weight: 800;
+  opacity: 0.6;
+  padding-bottom: 40rpx;
+}
+
+.progress-right { font-variant-numeric: tabular-nums; }
+.week-fill { background: linear-gradient(90deg, #764ba2, #667eea); }
+.month-fill { background: linear-gradient(90deg, #f093fb, #f5576c); }
+
+.sub-info { display: block; font-size: 26rpx; line-height: 1.6; margin-top: 12rpx; }
+
+/* ---------- 月历双击快速请假弹窗 ---------- */
+.ql-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+}
+.ql-box {
+  background: rgba(30, 28, 58, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 28rpx;
+  padding: 28rpx;
+  width: 620rpx;
+  max-width: 86vw;
+  box-shadow: 0 24rpx 80rpx rgba(0, 0, 0, 0.4);
+}
+.ql-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+  margin-bottom: 24rpx;
+}
+.ql-timerow {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 24rpx;
+}
+.ql-allday { display: flex; align-items: center; gap: 8rpx; flex-shrink: 0; }
+.ql-allday-text { font-size: 26rpx; color: rgba(255, 255, 255, 0.78); }
+.ql-time { flex: 1 1 0; min-width: 0; }
+.ql-time-btn {
+  height: 64rpx;
+  line-height: 64rpx;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 12rpx;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 26rpx;
+}
+.ql-sep { font-size: 24rpx; color: rgba(255, 255, 255, 0.6); }
+.ql-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+.ql-opt {
+  box-sizing: border-box;
+  width: calc(50% - 6rpx);
+  padding: 18rpx 0;
+  text-align: center;
+  border-radius: 14rpx;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.10);
+  color: #fff;
+  font-size: 27rpx;
+}
+.ql-opt:active { background: #ffd166; color: #4a3a00; }
+.ql-del {
+  margin-top: 16rpx;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16rpx 0;
+  text-align: center;
+  border-radius: 14rpx;
+  border: 1px solid rgba(255, 107, 107, 0.5);
+  background: rgba(255, 107, 107, 0.12);
+  color: #ff9d9d;
+  font-size: 24rpx;
+}
+.ql-cancel {
+  margin-top: 14rpx;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16rpx 0;
+  text-align: center;
+  border-radius: 14rpx;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 24rpx;
+}

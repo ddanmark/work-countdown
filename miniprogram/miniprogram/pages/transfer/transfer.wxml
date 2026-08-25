@@ -1,0 +1,28 @@
+<!-- 导入导出页 -->
+<view class="root">
+  <view class="tab-bar">
+    <view class="tab-btn {{mode==='export'?'active':''}}" bindtap="switchMode" data-mode="export">📤 导出</view>
+    <view class="tab-btn {{mode==='import'?'active':''}}" bindtap="switchMode" data-mode="import">📥 导入</view>
+  </view>
+
+  <!-- 导出 -->
+  <view wx:if="{{mode==='export'}}" class="card">
+    <view class="section-title">📤 导出配置</view>
+    <view class="hint">复制下方文本，粘贴到另一台设备导入。格式与安卓端完全互通。</view>
+    <view class="config-text">{{exportText}}</view>
+    <view class="btn btn-primary btn-block" style="margin-bottom:16rpx;" bindtap="copyExport">📋 复制配置文本</view>
+  </view>
+
+  <!-- 导入 -->
+  <view wx:if="{{mode==='import'}}" class="card">
+    <view class="section-title">📥 导入配置</view>
+    <view class="hint">选择导入方式</view>
+    <view class="btn btn-primary btn-block" style="margin-bottom:16rpx;" bindtap="importFromClipboard">📋 从剪贴板导入</view>
+    <view class="btn btn-ghost btn-block" bindtap="showPasteBox">✏️ 手动粘贴文本</view>
+
+    <view wx:if="{{showPaste}}" class="paste-box">
+      <textarea class="paste-area" value="{{pasteText}}" bindinput="pasteInput" placeholder="在此粘贴配置文本…" placeholder-style="color:rgba(255,255,255,0.5)" auto-height maxlength="-1"/>
+      <view class="btn btn-primary btn-block" style="margin-top:16rpx;" bindtap="confirmPaste">✅ 导入</view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,29 @@
+{
+  "name": "work-countdown-app",
+  "version": "1.0.0",
+  "description": "下班倒计时 - Capacitor Android/iOS 应用",
+  "main": "index.js",
+  "scripts": {
+    "copy": "cap copy",
+    "copy:android": "cap copy android",
+    "open:android": "cap open android",
+    "run:android": "cap run android",
+    "sync": "cap copy android",
+    "assets:android": "capacitor-assets generate --android"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/share": "^8.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.0"
+  }
+}

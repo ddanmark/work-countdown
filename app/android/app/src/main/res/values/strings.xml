@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">下班了吗</string>
+    <string name="title_activity_main">下班了吗</string>
+    <string name="package_name">com.workcountdown.app</string>
+    <string name="custom_url_scheme">com.workcountdown.app</string>
+    <string name="widget_small_desc">下班了吗 - 小部件</string>
+    <string name="widget_medium_desc">下班了吗 - 大部件</string>
+    <string name="widget_compact_desc">下班了吗 - 圆环部件</string>
+</resources>

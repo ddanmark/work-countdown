@@ -1,0 +1,94 @@
+<!-- 主页：倒计时 + 进度 + 月历（自定义导航栏：无原生标题/边框）-->
+<page-meta>
+  <navigation-bar front-color="{{navFront}}" background-color="{{navBg}}" />
+</page-meta>
+<view class="root" style="background:{{pageBg}};{{cssVars}}padding-top:0;">
+  <!-- 顶部留白：状态栏 + 胶囊按钮高度，避免内容被遮挡 -->
+  <view style="height: 96rpx; display: block; box-sizing: border-box"></view>
+  <view class="card" bindtap="goSettings">
+    <view class="header">
+      <text class="title">🚀 下班了吗</text>
+    </view>
+
+    <view class="status-bar">
+      <view class="status {{statusClass}}">{{statusText}}</view>
+    </view>
+
+    <view class="countdown">
+      <view class="time-block">
+        <view class="time-num">{{hh}}</view>
+        <view class="time-label">小时</view>
+      </view>
+      <view class="colon">:</view>
+      <view class="time-block">
+        <view class="time-num">{{mm}}</view>
+        <view class="time-label">分钟</view>
+      </view>
+      <view class="colon">:</view>
+      <view class="time-block">
+        <view class="time-num">{{ss}}<text class="ms">{{ms}}</text></view>
+        <view class="time-label">秒</view>
+      </view>
+    </view>
+
+    <view class="progress-wrap">
+      <view class="progress-info">
+        <text>{{progressLabel}}</text>
+        <text class="progress-right">{{dayPctText}}%<text class="earned">{{dayEarned}}</text></text>
+      </view>
+      <view class="progress-bar"><view class="progress-fill" style="width:{{dayPctText}}%"></view></view>
+    </view>
+
+    <view class="progress-wrap" style="margin-top: 20rpx;">
+      <view class="progress-info">
+        <text>{{weekLabel}}</text>
+        <text class="progress-right">{{weekPctText}}%<text class="earned">{{weekEarned}}</text></text>
+      </view>
+      <view class="progress-bar"><view class="progress-fill week-fill" style="width:{{weekPctText}}%"></view></view>
+    </view>
+
+    <view wx:if="{{showMonth}}" class="progress-wrap" style="margin-top: 20rpx;">
+      <view class="progress-info">
+        <text>{{monthLabel}}</text>
+        <text class="progress-right">{{monthPctText}}%<text class="earned">{{monthEarned}}</text></text>
+      </view>
+      <view class="progress-bar"><view class="progress-fill month-fill" style="width:{{monthPctText}}%"></view></view>
+    </view>
+
+    <rich-text wx:if="{{subInfo}}" class="sub-info" style="color:rgba(255,255,255,0.8);" nodes="{{subInfo}}"></rich-text>
+  </view>
+
+  <calendar cfg="{{cfg}}" id="cal" bind:quickleave="onQuickLeave"></calendar>
+
+  <!-- 月历双击日期：快速请假 -->
+  <view class="ql-overlay" wx:if="{{qlOpen}}" bindtap="qlClose">
+    <view class="ql-box" catchtap="noop">
+      <view class="ql-title">请假 {{qlDate}}（{{qlWeek}}）</view>
+      <view class="ql-timerow">
+        <view class="ql-allday">
+          <switch checked="{{qlAllDay}}" color="#ffd166" bindchange="qlAllDayChange" />
+          <text class="ql-allday-text">全天</text>
+        </view>
+        <block wx:if="{{!qlAllDay}}">
+          <picker class="ql-time" mode="time" value="{{qlStart}}" bindchange="qlStartChange">
+            <view class="ql-time-btn">{{qlStart}}</view>
+          </picker>
+          <text class="ql-sep">至</text>
+          <picker class="ql-time" mode="time" value="{{qlEnd}}" bindchange="qlEndChange">
+            <view class="ql-time-btn">{{qlEnd}}</view>
+          </picker>
+        </block>
+      </view>
+      <view class="ql-opts">
+        <view class="ql-opt" wx:for="{{qlTypes}}" wx:key="v" data-v="{{item.v}}" bindtap="qlPick">{{item.t}}</view>
+      </view>
+      <view class="ql-del" wx:for="{{qlEntries}}" wx:key="text" data-idx="{{index}}" bindtap="qlDelete">✕ 删除 {{item.text}}</view>
+      <view class="ql-cancel" bindtap="qlClose">取消</view>
+    </view>
+  </view>
+
+  <view class="fab" bindtap="toggleVent">🎈</view>
+
+  <!-- 解压发泄：透明小弹窗（再次点击按钮可收起）-->
+  <vent show="{{ventOpen}}" bind:changebg="onPageBgChange"></vent>
+</view>

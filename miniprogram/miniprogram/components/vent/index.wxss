@@ -1,0 +1,68 @@
+/* vent 组件样式：透明覆盖层（不遮挡主页内容）*/
+.vent-stage {
+  position: fixed;
+  left: 0; top: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  z-index: 100;
+  background: transparent;       /* 透明：倒计时/日历依然可见 */
+  pointer-events: none;          /* 不拦截点击，事件穿透到主页 */
+}
+.fx-canvas {
+  position: absolute;
+  left: 0; top: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  pointer-events: none;          /* 画布不拦截点击 */
+}
+
+/* 屏幕震动 / 挤压（作用于 canvas）*/
+.fx-shake { animation: fxshake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+.fx-squeeze { animation: fxsqueeze 0.6s ease both; }
+@keyframes fxshake {
+  10%,90% { transform: translate(-2rpx,0); }
+  20%,80% { transform: translate(6rpx,0); }
+  30%,50%,70% { transform: translate(-12rpx,0); }
+  40%,60% { transform: translate(12rpx,0); }
+}
+@keyframes fxsqueeze {
+  0% { transform: scale(1,1); }
+  30% { transform: scale(1.06,0.9); }
+  55% { transform: scale(0.95,1.06); }
+  100% { transform: scale(1,1); }
+}
+
+/* 底部表情面板：小弹窗（靠左，浮在按钮上方，重新开启点击）*/
+.vent-panel {
+  position: absolute;
+  left: 36rpx;
+  bottom: calc(118rpx + env(safe-area-inset-bottom));
+  width: max-content;
+  max-width: 86vw;
+  padding: 20rpx 24rpx;
+  border-radius: 28rpx;
+  background: rgba(0, 0, 0, 0.42);
+  border: 1rpx solid rgba(255, 255, 255, 0.18);
+  z-index: 5;
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
+}
+.vent-tip { display: none; }
+.vent-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 104rpx);
+  gap: 16rpx;
+  justify-content: center;
+}
+.vent-item {
+  width: 104rpx;
+  height: 104rpx;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.18);
+  border: 1rpx solid rgba(255,255,255,0.3);
+}
+.vent-item:active { transform: scale(0.88); background: rgba(255,255,255,0.32); }
+.vent-emoji { font-size: 48rpx; }

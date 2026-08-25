@@ -1,0 +1,19 @@
+{
+  "appId": "com.workcountdown.app",
+  "appName": "下班了吗",
+  "webDir": "www",
+  "backgroundColor": "#667eea",
+  "android": {
+    "backgroundColor": "#667eea",
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 800,
+      "backgroundColor": "#667eea",
+      "showSpinner": false
+    }
+  }
+}

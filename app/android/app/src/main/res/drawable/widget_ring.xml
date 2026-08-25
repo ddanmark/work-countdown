@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  倒计时小组件的旋转指针环。
+  - 浅色整圈作为底
+  - 一段亮色弧（顶部→右侧）+ 顶部亮点
+  在 Provider 里每秒用 setRotation(sec*6°) 旋转，
+  亮点会绕中心"走秒"，像表盘秒针，对应倒计时主题。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- 底圈 -->
+    <path
+        android:pathData="M6,24 A18,18 0 1 0 42,24 A18,18 0 1 0 6,24"
+        android:strokeWidth="3"
+        android:strokeColor="#55FFFFFF"
+        android:fillColor="#00000000" />
+
+    <!-- 亮色弧段（顶部→右侧约 90°），旋转时最显眼 -->
+    <path
+        android:pathData="M24,6 A18,18 0 0 1 42,24"
+        android:strokeWidth="3.5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- 顶部亮点，旋转时绕中心走秒 -->
+    <path
+        android:pathData="M24,7 m-2.1,0 a2.1,2.1 0 1 0 4.2,0 a2.1,2.1 0 1 0 -4.2,0"
+        android:fillColor="#FFFFD166" />
+
+    <!-- 中心点 -->
+    <path
+        android:pathData="M24,24 m-2.4,0 a2.4,2.4 0 1 0 4.8,0 a2.4,2.4 0 1 0 -4.8,0"
+        android:fillColor="#FFFFFFFF" />
+</vector>
