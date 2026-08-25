@@ -718,9 +718,10 @@
       confirmOverlay = overlay;
     }
     confirmOverlay.querySelector(".confirm-msg").textContent = msg;
-    // 克隆替换确定按钮，避免叠加多个监听器
+    // 克隆替换确定按钮，避免叠加多个监听器（浅克隆不带文本，需手动补回）
     const oldBtn = confirmOverlay.querySelector(".confirm-ok");
     const okBtn = oldBtn.cloneNode(false);
+    okBtn.textContent = "确定";
     oldBtn.replaceWith(okBtn);
     okBtn.addEventListener("click", function () {
       confirmOverlay.classList.remove("open");
