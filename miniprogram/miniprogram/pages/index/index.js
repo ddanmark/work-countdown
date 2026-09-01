@@ -341,10 +341,16 @@ Page({
       const ks = Object.keys(by);
       return ks.length ? ks.map((k) => k + " " + by[k] + " 天").join(" · ") : "0 天";
     };
+    // 时段假按实际扣减工时展示（"年假 2.5h · 事假 3h"）
+    const segTxt = (by) => {
+      const ks = Object.keys(by);
+      return ks.length ? ks.map((k) => k + " " + fmtH(by[k])).join(" · ") : "0h";
+    };
     const rows = [
       ["📅 应上工作日", ms.workDays + " 天"],
       ["✅ 已完成工时", fmtH(ms.doneMs) + " / " + fmtH(ms.totalMs)],
       ["📝 全天请假", leaveTxt(ms.leaveByReason)],
+      ["⏳ 时段请假", segTxt(ms.segLeaveByReason)],
       ["⏰ 调班上班", ms.overtimeDays + " 天"],
       ["😴 调休休息", ms.offDays + " 天"],
     ];
@@ -361,6 +367,7 @@ Page({
       ["应上 / 已过工作日", ys.workDays + " / " + ys.pastWorkDays + " 天"],
       ["已完成工时", fmtH(ys.doneMs) + " / " + fmtH(ys.totalMs)],
       ["全年请假", leaveTxt(ys.leaveByReason)],
+      ["时段请假", segTxt(ys.segLeaveByReason)],
       ["调班上班 / 调休休息", ys.overtimeDays + " / " + ys.offDays + " 天"],
     ];
     this.setData({ stOpen: true, stTitle: y + "年" + (m + 1) + "月 统计", stRows: rows, stYearRows: yrows });

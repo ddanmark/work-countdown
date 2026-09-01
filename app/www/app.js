@@ -2233,11 +2233,13 @@
     if (cfg.mode === "bigSmall" && idx === 6) return isBigWeek(d) && !!sch.workStart && !!sch.workEnd;
     return !!sch.enabled;
   }
-  // overtimeDays=本不该上班却调班上班的天数；offDays=调休休息天数；leaveByReason=按原因的全天假天数
+  // overtimeDays=本不该上班却调班上班的天数；offDays=调休休息天数；leaveByReason=按原因的全天假天数；
+  // segLeaveByReason=按原因的时段假扣减工时（裁剪到班次内、不与午休/休息段重复扣，与 rangeTime 口径一致）
   function computeRangeStats(from, days, now) {
     var todayKey = ymd(now);
     var workDays = 0, pastWorkDays = 0, futureWorkDays = 0, leaveDays = 0, overtimeDays = 0, offDays = 0;
     var leaveByReason = {};
+    var segLeaveByReason = {};
     var d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
     for (var i = 0; i < days; i++) {
       var dk = ymd(d);
@@ -2253,6 +2255,24 @@
           leaveDays++;
           var r = normalizeLeaveReason(leaveReasonOf(d)) || "其他";
           leaveByReason[r] = (leaveByReason[r] || 0) + 1;
+        } else {
+          // 纯时段假：按实际扣减工时计入（当天仍是工作日，只折算小时）
+          var lvs = leaveInfosOf(d);
+          if (lvs && lvs.length) {
+            var sch = daySchedule(d);
+            if (sch) {
+              var base = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+              for (var j = 0; j < lvs.length; j++) {
+                var lv = lvs[j];
+                if (!lv.start) continue;
+                var ms = netWorkMs(sch, toDate(lv.start, base), toDate(lv.end, base));
+                if (ms > 0) {
+                  var sr = normalizeLeaveReason(lv.reason) || "其他";
+                  segLeaveByReason[sr] = (segLeaveByReason[sr] || 0) + ms;
+                }
+              }
+            }
+          }
         }
       }
       d.setDate(d.getDate() + 1);
@@ -2260,7 +2280,8 @@
     var rt = rangeTime(now, new Date(from.getFullYear(), from.getMonth(), from.getDate()), days, false);
     return {
       workDays: workDays, pastWorkDays: pastWorkDays, futureWorkDays: futureWorkDays,
-      leaveDays: leaveDays, leaveByReason: leaveByReason, overtimeDays: overtimeDays, offDays: offDays,
+      leaveDays: leaveDays, leaveByReason: leaveByReason, segLeaveByReason: segLeaveByReason,
+      overtimeDays: overtimeDays, offDays: offDays,
       totalMs: rt.totalMs, doneMs: rt.doneMs,
     };
   }
@@ -2609,6 +2630,12 @@
     if (!keys.length) return "0 天";
     return keys.map(function (k) { return k + " " + byReason[k] + " 天"; }).join(" · ");
   }
+  // 时段假按实际扣减工时展示（"年假 2.5h · 事假 3h"）
+  function statsSegLeaveText(byReason) {
+    const keys = Object.keys(byReason);
+    if (!keys.length) return "0h";
+    return keys.map(function (k) { return k + " " + statsFmtH(byReason[k]); }).join(" · ");
+  }
   function renderStatsPanel() {
     const now = new Date();
     const m = computeMonthStats(now, statsYear, statsMonth);
@@ -2617,6 +2644,7 @@
     html += '<div class="stats-row"><span>📅 应上工作日</span><b>' + m.workDays + " 天</b></div>";
     html += '<div class="stats-row"><span>✅ 已完成工时</span><b>' + statsFmtH(m.doneMs) + " / " + statsFmtH(m.totalMs) + "</b></div>";
     html += '<div class="stats-row"><span>📝 全天请假</span><b>' + statsLeaveText(m.leaveByReason) + "</b></div>";
+    html += '<div class="stats-row"><span>⏳ 时段请假</span><b>' + statsSegLeaveText(m.segLeaveByReason) + "</b></div>";
     html += '<div class="stats-row"><span>⏰ 调班上班</span><b>' + m.overtimeDays + " 天</b></div>";
     html += '<div class="stats-row"><span>😴 调休休息</span><b>' + m.offDays + " 天</b></div>";
     if (cfg.salaryEnabled && cfg.monthlySalary > 0) {
@@ -2632,6 +2660,7 @@
     html += '<div class="stats-row"><span>应上 / 已过工作日</span><b>' + y.workDays + " / " + y.pastWorkDays + " 天</b></div>";
     html += '<div class="stats-row"><span>已完成工时</span><b>' + statsFmtH(y.doneMs) + " / " + statsFmtH(y.totalMs) + "</b></div>";
     html += '<div class="stats-row"><span>全年请假</span><b>' + statsLeaveText(y.leaveByReason) + "</b></div>";
+    html += '<div class="stats-row"><span>时段请假</span><b>' + statsSegLeaveText(y.segLeaveByReason) + "</b></div>";
     html += '<div class="stats-row"><span>调班上班 / 调休休息</span><b>' + y.overtimeDays + " / " + y.offDays + " 天</b></div>";
     el.statsBody.innerHTML = html;
     el.statsMonthLabel.textContent = statsYear + "年" + (statsMonth + 1) + "月";

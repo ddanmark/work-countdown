@@ -141,6 +141,19 @@ function buildCases() {
     now: "2026-08-24T10:00:00",
   });
 
+  // M. 统计时段假：周一全天事假 + 周二两段（一段跨午休验证不重复扣）+ 周三整班次大段（验证裁剪）
+  cases.push({
+    name: "M 统计时段假",
+    config: baseCfg({
+      leaves: {
+        "2026-08-24": "事假",
+        "2026-08-25": [{ reason: "年假", start: "11:00", end: "14:00" }, { reason: "事假", start: "16:00", end: "18:00" }],
+        "2026-08-26": [{ reason: "病假", start: "09:00", end: "19:00" }],
+      },
+    }),
+    now: "2026-08-24T10:00:00",
+  });
+
   return cases;
 }
 
@@ -189,7 +202,8 @@ if (UPDATE) {
     if (c.name.indexOf("统计") >= 0) {
       expect.stats = {
         workDays: r.stats.workDays, pastWorkDays: r.stats.pastWorkDays, leaveDays: r.stats.leaveDays,
-        leaveByReason: r.stats.leaveByReason, overtimeDays: r.stats.overtimeDays, offDays: r.stats.offDays,
+        leaveByReason: r.stats.leaveByReason, segLeaveByReason: r.stats.segLeaveByReason,
+        overtimeDays: r.stats.overtimeDays, offDays: r.stats.offDays,
         totalMs: r.stats.totalMs, doneMs: r.stats.doneMs,
       };
     }

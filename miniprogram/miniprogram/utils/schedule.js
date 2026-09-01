@@ -440,11 +440,13 @@ function statsBaseWorkDay(cfg, d) {
   if (cfg.mode === "bigSmall" && idx === 6) return isBigWeek(cfg, d) && !!sch.workStart && !!sch.workEnd;
   return !!sch.enabled;
 }
-// overtimeDays=本不该上班却调班上班的天数；offDays=调休休息天数；leaveByReason=按原因的全天假天数
+// overtimeDays=本不该上班却调班上班的天数；offDays=调休休息天数；leaveByReason=按原因的全天假天数；
+// segLeaveByReason=按原因的时段假扣减工时（裁剪到班次内、不与午休/休息段重复扣，与 rangeTime 口径一致）
 function computeRangeStats(cfg, from, days, now) {
   var todayKey = ymd(now);
   var workDays = 0, pastWorkDays = 0, futureWorkDays = 0, leaveDays = 0, overtimeDays = 0, offDays = 0;
   var leaveByReason = {};
+  var segLeaveByReason = {};
   var d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
   for (var i = 0; i < days; i++) {
     var dk = ymd(d);
@@ -460,6 +462,24 @@ function computeRangeStats(cfg, from, days, now) {
         leaveDays++;
         var r = normalizeLeaveReason(leaveReasonOf(cfg, d)) || "其他";
         leaveByReason[r] = (leaveByReason[r] || 0) + 1;
+      } else {
+        // 纯时段假：按实际扣减工时计入（当天仍是工作日，只折算小时）
+        var lvs = leaveInfosOf(cfg, d);
+        if (lvs && lvs.length) {
+          var sch = daySchedule(cfg, d);
+          if (sch) {
+            var base = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+            for (var j = 0; j < lvs.length; j++) {
+              var lv = lvs[j];
+              if (!lv.start) continue;
+              var ms = netWorkMs(sch, toDate(lv.start, base), toDate(lv.end, base));
+              if (ms > 0) {
+                var sr = normalizeLeaveReason(lv.reason) || "其他";
+                segLeaveByReason[sr] = (segLeaveByReason[sr] || 0) + ms;
+              }
+            }
+          }
+        }
       }
     }
     d.setDate(d.getDate() + 1);
@@ -467,7 +487,8 @@ function computeRangeStats(cfg, from, days, now) {
   var rt = rangeTime(cfg, now, new Date(from.getFullYear(), from.getMonth(), from.getDate()), days, false);
   return {
     workDays: workDays, pastWorkDays: pastWorkDays, futureWorkDays: futureWorkDays,
-    leaveDays: leaveDays, leaveByReason: leaveByReason, overtimeDays: overtimeDays, offDays: offDays,
+    leaveDays: leaveDays, leaveByReason: leaveByReason, segLeaveByReason: segLeaveByReason,
+    overtimeDays: overtimeDays, offDays: offDays,
     totalMs: rt.totalMs, doneMs: rt.doneMs,
   };
 }

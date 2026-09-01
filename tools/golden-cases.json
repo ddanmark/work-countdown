@@ -1593,10 +1593,158 @@
             "事假": 1,
             "年假": 1
           },
+          "segLeaveByReason": {},
           "overtimeDays": 1,
           "offDays": 1,
           "totalMs": 536400000,
           "doneMs": 435600000
+        }
+      }
+    },
+    {
+      "name": "M 统计时段假",
+      "config": {
+        "mode": "fixed",
+        "bigSmallAnchor": null,
+        "holidays": {},
+        "deletedBuiltinHolidays": {},
+        "remoteHolidays": {},
+        "leaves": {
+          "2026-08-24": "事假",
+          "2026-08-25": [
+            {
+              "reason": "年假",
+              "start": "11:00",
+              "end": "14:00"
+            },
+            {
+              "reason": "事假",
+              "start": "16:00",
+              "end": "18:00"
+            }
+          ],
+          "2026-08-26": [
+            {
+              "reason": "病假",
+              "start": "09:00",
+              "end": "19:00"
+            }
+          ]
+        },
+        "schedules": {
+          "0": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          },
+          "1": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "2": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "3": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "4": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "5": {
+            "enabled": true,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": [
+              {
+                "name": "午休",
+                "start": "12:00",
+                "end": "13:00"
+              }
+            ]
+          },
+          "6": {
+            "enabled": false,
+            "workStart": "09:00",
+            "workEnd": "18:00",
+            "breaks": []
+          }
+        }
+      },
+      "now": "2026-08-24T10:00:00",
+      "expect": {
+        "week": [
+          68400000,
+          0,
+          68400000
+        ],
+        "month": [
+          529200000,
+          432000000,
+          97200000
+        ],
+        "weekPaid": [
+          79200000,
+          0,
+          68400000
+        ],
+        "monthPaid": [
+          540000000,
+          432000000,
+          97200000
+        ],
+        "monthStd": 604800000,
+        "stats": {
+          "workDays": 21,
+          "pastWorkDays": 15,
+          "leaveDays": 1,
+          "leaveByReason": {
+            "事假": 1
+          },
+          "segLeaveByReason": {
+            "年假": 7200000,
+            "事假": 7200000,
+            "病假": 28800000
+          },
+          "overtimeDays": 0,
+          "offDays": 0,
+          "totalMs": 529200000,
+          "doneMs": 432000000
         }
       }
     }
