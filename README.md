@@ -16,7 +16,23 @@
 - 🇨🇳 **法定节假日** —— `holidays.json` 单一数据源生成三端代码，支持在线更新（优先级：自定义 > 已删 > 在线 > 内置）
 - 🗓️ **月历视图** —— 今日格子按剩余工时渐变填充，请假 / 调班 / 节假日一目了然
 - 🔔 **下班前提醒** —— Android 系统通知，可设置提前分钟数
+- 📡 **扫码取文件** —— 用摄像头扫屏幕上的 [libcimbar](https://github.com/sz3/libcimbar) 动态码，把文件直接收进手机（离线、不过网；入口在左下角浮动按钮的面板里）
 - 🔄 **配置互通** —— Z1 压缩文本 / 二维码，安卓 ↔ 小程序 ↔ 网页互相导入导出
+
+## 扫码取文件（libcimbar）
+
+左下角浮动按钮（解压发泄）的面板里多了一个 📡，点开是全屏取景页：
+
+```
+发送端（另一台设备）  cimbar.org 或 cimbar_send  →  屏幕上的彩色动态码
+接收端（本 App/网页/小程序）  摄像头逐帧扫  →  喷泉码重组  →  zstd 解压  →  保存/分享
+```
+
+- 解码器是 libcimbar 官方 wasm（`cimbard_*` 接口），与 [re.cimbar.org](http://re.cimbar.org/) 同源同版本，三端共用一份二进制
+- 网页版 / App 端：`app/www/cimbar/`，多 Worker 并行解码，WebCodecs 取帧（不支持时自动退回 canvas）
+- 小程序端：`miniprogram/.../utils/cimbar/`，`WXWebAssembly` 加载 brotli 压缩的 wasm（1.85 MB → 448 KB），`camera` 组件逐帧解码
+- 单块 7.5 KB，一帧一个块；文件越大需要扫的帧数越多（例如 200 KB 约 30 帧）
+- 想升级解码器版本：改 `tools/vendor-cimbar.js` 顶部的 `VERSION` / `BUILD`，再跑 `node tools/vendor-cimbar.js`
 
 ## 目录结构
 
@@ -24,12 +40,17 @@
 holidays.json              # 法定节假日单一数据源（每年更新这里）
 app/
   www/                     # 核心代码（HTML/CSS/JS，三端共享）
+    cimbar/                # 扫码取文件：libcimbar wasm 解码器 + 集成层（vendored）
   android/                 # Android 工程（Gradle，www 打包进 assets）
   icon.png
 miniprogram/               # 微信小程序工程
+  miniprogram/utils/cimbar/  # 小程序端解码器（包装后的 glue + brotli wasm）
 tools/
   gen-holidays.js          # 节假日生成器：holidays.json → 三端代码
   build-web.js             # 生成 web/（PWA 变体：manifest + Service Worker）
+  vendor-cimbar.js         # 加工 libcimbar 官方发布包 → 三端可用的解码器资源
+  cimbar-e2e.html          # 扫码取文件端到端验证页（编码 → 取像素 → 解码 → 逐字节比对）
+  test-cimbar-e2e.js       # 跑上面那个页面的脚本（需 playwright）
   golden-cases.json        # 黄金向量用例
   test-java.sh             # WidgetConfig Java 测试（桌面 JVM + android-stub.jar）
 extract-harness.js         # 从 app.js 按代码标记抽取纯计算函数（测试基建）
@@ -71,7 +92,16 @@ node test-holiday-online.js   # 在线节假日
 node test-week-range.js       # 周/月进度回归
 node test-week-range-mp.js    # 小程序周/月进度回归
 bash tools/test-java.sh       # WidgetConfig 黄金向量（需 JDK 21）
+
+# 扫码取文件：端到端验证（需 playwright，属可选开发依赖）
+npm i -D playwright && npx playwright install chromium
+node tools/test-cimbar-e2e.js --bytes=40000 --random          # 网页/App 端
+node tools/test-cimbar-e2e.js --engine=mp --bytes=40000 --random  # 小程序端解码器
 ```
+
+`tools/cimbar-e2e.html` 会用同一个 wasm 模块既当发送端又当接收端：把一段字节渲染成
+cimbar 动态码、读回像素、按真实路径喂给解码器，最后逐字节比对。不需要摄像头，
+顺带还会篡改一个字节做自检，确认「比对」这一步不是走过场。
 
 ### CI / 部署
 
@@ -85,3 +115,6 @@ bash tools/test-java.sh       # WidgetConfig 黄金向量（需 JDK 21）
 ## License
 
 [MIT](LICENSE) © Nasblance
+
+扫码取文件功能内置的 libcimbar 解码器为第三方组件，按 [Mozilla Public License 2.0](https://github.com/sz3/libcimbar/blob/master/LICENSE) 授权，
+许可证全文见 `app/www/cimbar/LICENSE-libcimbar.txt` 与 `miniprogram/miniprogram/utils/cimbar/LICENSE-libcimbar.txt`。

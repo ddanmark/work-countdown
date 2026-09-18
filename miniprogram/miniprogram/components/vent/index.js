@@ -28,6 +28,8 @@ Component({
       { key: "crush", emoji: "💢" },
       { key: "bg", emoji: "🎨" },
       { key: "party", emoji: "🎉" },
+      // 独立小功能：扫屏幕上的 libcimbar 动态码取文件，由主页跳转到扫码页
+      { key: "scan", emoji: "📡" },
     ],
     fxShake: false,
     fxSqueeze: false,
@@ -397,6 +399,7 @@ Component({
       else if (key === "crush") this.fire("crush", () => this.launchCrush());
       else if (key === "bg") this.fire("bg", () => this.changeBgColor());
       else if (key === "party") this.fire("party", () => { for (let i = 0; i < 3; i++) this.later(() => this.launchFirework(), i * 450); this.launchConfetti(); });
+      else if (key === "scan") this.triggerEvent("scan");
     },
   },
 });

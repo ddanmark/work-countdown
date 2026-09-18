@@ -1,0 +1,4 @@
+# 第三方二进制资源：禁止任何换行/编码转换，避免 wasm/jar 被损坏
+*.wasm    binary
+*.wasm.br binary
+*.jar     binary

@@ -54,6 +54,8 @@ fs.writeFileSync(
 );
 
 // Service Worker：同源静态资源缓存优先（离线可用）；改资源时把 CACHE 版本号 +1
+// 注意：cimbar_js.wasm（1.85 MB）不预缓存，等用户真去「扫码取文件」时按需拉取并由
+// SW 自动缓存，避免所有访客为没用到的小功能付流量。
 const ASSETS = [
   "./",
   "./index.html",
@@ -64,13 +66,14 @@ const ASSETS = [
   "./qrcode.min.js",
   "./jsQR.js",
   "./lz-string.min.js",
+  "./cimbar/cimbar-recv.js",
   "./manifest.webmanifest",
   "./icon.png",
 ];
 fs.writeFileSync(
   path.join(OUT, "sw.js"),
   `/* 由 tools/build-web.js 生成 */
-const CACHE = "work-countdown-v1";
+const CACHE = "work-countdown-v2";
 const ASSETS = ${JSON.stringify(ASSETS)};
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));

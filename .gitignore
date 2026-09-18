@@ -17,6 +17,9 @@ app/android/local.properties
 # 工具产物
 .zcode/
 .playwright-mcp/
+.workbuddy-ai/
+# libcimbar 官方发布包缓存（tools/vendor-cimbar.js 用，产物已入库）
+.cimbar-dist/
 
 # 微信开发者工具个人配置
 miniprogram/project.private.config.json

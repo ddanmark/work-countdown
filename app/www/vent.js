@@ -323,15 +323,29 @@
     { emoji: "💢", label: "捏碎",   fn: debounced("crush", launchCrush) },
     { emoji: "🎨", label: "变色",   fn: debounced("bg", changeBgColor) },
     { emoji: "🎉", label: "庆祝",   fn: debounced("party", function () { for (let i = 0; i < 3; i++) setTimeout(launchFirework, i * 450); launchConfetti(); }) },
+    // 独立小功能：扫屏幕上的 libcimbar 动态码取文件（点完收起面板，把屏幕让给相机）
+    { emoji: "📡", label: "扫码取文件", closePanel: true, fn: function () { if (window.CimbarRecv) window.CimbarRecv.open(); } },
   ];
 
   ACTIONS.forEach(function (act) {
     const btn = document.createElement("button");
     btn.className = "vent-item";
     btn.innerHTML = act.emoji;
-    btn.addEventListener("click", function () { act.fn(); });
+    btn.title = act.label;
+    btn.setAttribute("aria-label", act.label);
+    btn.addEventListener("click", function () {
+      act.fn();
+      if (act.closePanel) closePanel();
+    });
     ventGrid.appendChild(btn);
   });
+
+  function closePanel() {
+    if (!ventPanel.classList.contains("open")) return;
+    ventPanel.classList.remove("open");
+    ventBtn.classList.remove("active");
+    startFaceCycle();
+  }
 
   // ---------- 川剧变脸 ----------
   const FACES = ["😊", "🤩", "😎", "🤪", "😜", "😈", "👻", "🤡", "👽", "😺", "🥳", "🙀"];

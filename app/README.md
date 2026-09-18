@@ -4,7 +4,7 @@
 
 ### 一键脚本（推荐）
 ```bash
-cd C:\Users\labao\ZCodeProject\work-countdown\app
+cd D:\runtime\ZCodeProject\work-countdown\app
 bash build.sh
 ```
 脚本会自动：同步网页 → 构建 APK → 显示版本号和路径。
@@ -12,7 +12,7 @@ bash build.sh
 ### 手动构建（三步）
 ```bash
 # 1. 同步网页到 Android
-cd C:\Users\labao\ZCodeProject\work-countdown\app
+cd D:\runtime\ZCodeProject\work-countdown\app
 npx cap copy android
 
 # 2. 设置环境变量并构建
@@ -41,12 +41,12 @@ export ANDROID_SDK_ROOT="D:/runtime/android-sdk"
 
 ## 改了网页后重新构建
 
-1. 修改 `app/www/index.html`（App 版网页）
-2. 同步到根目录：`cp app/www/index.html ../index.html`（保持浏览器版一致）
-3. 运行 `bash build.sh`
-4. 把 APK 传到手机安装
+1. 修改 `app/www/` 下的文件（App 版网页，同时也是网页版的源码）
+2. 运行 `bash build.sh`
+3. 把 APK 传到手机安装
 
-> 如果改了 `www/` 下新增了文件（如 jsQR.js），也要 `npx cap copy android` 同步过去。
+> 如果 `www/` 下新增了文件（如 `cimbar/` 里的解码器资源），也要 `npx cap copy android` 同步过去 —— `build.sh` 里已经包含这一步。
+> 网页版（PWA）由 `node tools/build-web.js` 从同一份 `app/www` 生成到 `web/`，不需要单独维护。
 
 ---
 
@@ -72,15 +72,13 @@ versionName "0.0.2"  // 版本号递增（用户可见）
 
 ```
 work-countdown/
-├── index.html              # 浏览器版（直接双击打开）
-├── jsQR.js                 # QR 扫描库（浏览器版）
-├── qrcode.min.js           # QR 生成库（浏览器版）
 └── app/                    # Capacitor 工程根目录
     ├── build.sh            # 一键构建脚本 ★
-    ├── www/                # 网页源（打包进 App）
+    ├── www/                # 网页源（打包进 App，网页版也从这里生成）
     │   ├── index.html
-    │   ├── jsQR.js
-    │   └── qrcode.min.js
+    │   ├── app.js / styles.css / vent.js / custom-select.js
+    │   ├── jsQR.js / qrcode.min.js / lz-string.min.js
+    │   └── cimbar/         # 扫码取文件：libcimbar wasm 解码器 + 集成层（vendored，勿手改）
     ├── capacitor.config.json
     ├── resources/          # 图标/启动屏源图
     └── android/            # Android 原生工程
@@ -96,3 +94,12 @@ work-countdown/
         │       └── res/             # 布局/图标/动画/样式
         └── build.gradle        # 根配置（阿里云镜像）
 ```
+
+## 扫码取文件
+
+左下角浮动按钮面板里的 📡 会打开全屏取景页，扫屏幕上的 libcimbar 动态码收文件。
+解码器是 libcimbar 官方 wasm（MPL-2.0，见 `www/cimbar/LICENSE-libcimbar.txt`），
+`www/cimbar/` 下的文件由 `node tools/vendor-cimbar.js` 从上游发布包生成，不要手改。
+
+- App 端相机权限已在 `AndroidManifest.xml` 声明（`android.permission.CAMERA`），Capacitor 会自动处理运行时授权
+- 收到文件后写入缓存目录并唤起系统分享（`@capacitor/filesystem` + `@capacitor/share`），失败则退回浏览器下载

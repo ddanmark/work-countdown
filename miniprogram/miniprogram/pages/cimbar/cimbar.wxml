@@ -1,0 +1,48 @@
+<!-- 扫码取文件：扫屏幕上的 libcimbar 动态码，把文件收到手机上 -->
+<view class="page">
+  <!-- camera 支持同层渲染，普通 view 可以正常叠在上面 -->
+  <camera
+    wx:if="{{cameraOk}}"
+    class="cam"
+    device-position="back"
+    flash="{{flash}}"
+    frame-size="{{frameSize}}"
+    resolution="high"
+    bindinitdone="onCameraInit"
+    binderror="onCameraError"
+  ></camera>
+  <view wx:else class="cam cam-error">
+    <text class="cam-error-text">{{camError}}</text>
+  </view>
+
+  <view class="veil"></view>
+
+  <!-- 取景框：命中/扫描中会变色 -->
+  <view class="frame {{frameState}}">
+    <view class="corner tl"></view>
+    <view class="corner tr"></view>
+    <view class="corner bl"></view>
+    <view class="corner br"></view>
+    <view class="cross-h"></view>
+    <view class="cross-v"></view>
+  </view>
+
+  <view class="head">
+    <view class="icon-btn" bindtap="goBack">✕</view>
+    <view class="chip" bindtap="showModePicker">{{modeText}} ▾</view>
+  </view>
+
+  <view class="foot">
+    <view class="status">{{status}}</view>
+    <view class="bars">
+      <view class="bar" wx:for="{{bars}}" wx:key="index">
+        <view class="bar-in" style="width:{{item}}%"></view>
+      </view>
+    </view>
+    <view class="tools">
+      <view class="tool" bindtap="toggleFlash">{{flash === 'torch' ? '🔦 补光开' : '🔦 补光关'}}</view>
+      <view class="tool" bindtap="toggleFrameSize">📐 {{frameSize === 'large' ? '高分辨率' : '中分辨率'}}</view>
+    </view>
+    <view class="hint">把另一台设备上的动态码对准镜头，尽量填满取景框。文件越大需要扫得越久（约 7.5 KB/帧）。</view>
+  </view>
+</view>

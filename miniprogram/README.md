@@ -11,6 +11,7 @@
 - **节假日管理**：内置 2026 法定节假日，支持新增/编辑/删除、恢复默认
 - **请假管理**：按日期记录请假（年假/事假/病假/调休/婚假/产假/丧假/其他）
 - **导入导出**：二维码（生成 + 原生扫码）/ 剪贴板 / 文件，**导出文本与安卓端完全互通**，可互相导入
+- **扫码取文件**：扫屏幕上的 [libcimbar](https://github.com/sz3/libcimbar) 动态码，把另一台设备上的文件直接收进手机（离线、不走网络）。入口在主页左下角浮动按钮（🎈）面板里的 📡
 - **解压发泄**：全屏 Canvas 粒子引擎（烟花 / 打拳 / 大便 / 捏碎 / 变色 / 庆祝 + 屏幕裂痕与震动）
 
 ## 目录结构
@@ -28,13 +29,30 @@ miniprogram/                      ← 微信开发者工具打开此目录
       lz-string.js  LZ-String 压缩（与安卓端互通）
       qrcode.js     二维码绘制封装
       qrcode-lib.js QR 编码核心（Kazuhiko Arase, MIT，第三方）
+      cimbar/       扫码取文件（libcimbar 解码器，第三方 + 包装）
+        cimbar_glue.js    官方 wasm glue（包成 CommonJS 工厂，由工具生成）
+        cimbar_js.wasm.br brotli 压缩的解码器 wasm（448 KB）
+        decoder.js        小程序侧集成：WXWebAssembly 加载 + 逐帧解码 + 落盘
     components/calendar/          月历组件
     components/vent/              解压发泄（主页覆盖层，非独立页）
     pages/
       index/        主页（倒计时+进度+月历+解压入口）
       settings/     设置（排班/节假日/请假/其他 四 Tab）
       transfer/     导入导出
+      cimbar/       扫码取文件（全屏取景）
 ```
+
+## 扫码取文件（libcimbar）
+
+- 解码跑在**主线程**（`WXWebAssembly` 在 Worker 里也能用，但单帧像素还要跨线程拷贝，收益不大），
+  因此按帧节流（约 11 帧/秒）；解码期间界面会有点顿，属正常。
+- 编码模式默认自动识别（B → Bu → Bm → 4C 依次试），扫出数据后**锁定模式**：
+  上游 `cimbard_configure_decode` 切模式时会重置喷泉码状态，来回切会导致永远攒不满数据。
+  右上角胶囊可以手动指定模式。
+- 单块 7.5 KB、一帧一个块。200 KB 的文件大约要扫 30 帧，文件越大越需要耐心（约 7.5 KB/帧）。
+- 收完的文件写进 `wx.env.USER_DATA_PATH/cimbar/`，随后优先「转发到聊天」，失败则尝试内置查看器打开。
+- wasm 用 brotli 压缩（1.85 MB → 448 KB）以避开代码包体积限制；`WXWebAssembly` 需要基础库 ≥ 2.13.0。
+- 升级解码器版本：改 `tools/vendor-cimbar.js` 的 `VERSION` / `BUILD`，跑 `node tools/vendor-cimbar.js`。
 
 ## 如何运行
 
@@ -55,6 +73,7 @@ miniprogram/                      ← 微信开发者工具打开此目录
 | localStorage + Preferences | wx.setStorageSync |
 | 自定义日历/时间/下拉选择器 | 原生 `<picker mode="date/time/selector">` |
 | 相机 + jsQR 扫码 | 原生 `wx.scanCode` |
+| cimbar 扫码取文件：WebCodecs/canvas 取帧 + Worker 池解码 | `camera` 组件 + `onCameraFrame` 取帧 + 主线程 WXWebAssembly 解码 |
 | qrcodejs 生成二维码 | qrcode-lib 画到 Canvas 2D |
 | requestAnimationFrame 走秒 | 1s 定时器刷新状态/进度，50ms 定时器刷新厘秒 |
 | 解压 vent.js（Canvas + SVG 裂痕） | vent 覆盖层 Canvas 2D（主页内，不跳页），裂痕改用 Canvas 线段绘制 |

@@ -429,6 +429,25 @@
     <div class="vent-grid" id="ventGrid"></div>
   </div>
 
+  <!-- 扫码取文件：扫屏幕上的 libcimbar 动态码把文件收下来 -->
+  <div class="cimbar-overlay" id="cimbarOverlay">
+    <video class="cimbar-video" id="cimbarVideo" autoplay playsinline muted></video>
+    <div class="cimbar-head">
+      <button class="cimbar-close" id="cimbarClose" aria-label="关闭">✕</button>
+      <div class="cimbar-mode" id="cimbarMode">自动识别</div>
+    </div>
+    <div class="cimbar-frame" id="cimbarFrame">
+      <i class="cimbar-corner tl"></i>
+      <i class="cimbar-corner tr"></i>
+      <i class="cimbar-corner bl"></i>
+      <i class="cimbar-corner br"></i>
+    </div>
+    <div class="cimbar-foot">
+      <div class="cimbar-status" id="cimbarStatus">把镜头对准屏幕上的动态码</div>
+      <div class="cimbar-bars" id="cimbarBars"></div>
+    </div>
+  </div>
+
   <!-- 裂痕层 -->
   <div id="crackLayer"></div>
 
@@ -442,5 +461,7 @@
   <script src="custom-select.js"></script>
   <!-- 解压特效引擎 -->
   <script src="vent.js"></script>
+  <!-- 扫码取文件（libcimbar 解码器按需懒加载） -->
+  <script src="cimbar/cimbar-recv.js"></script>
 </body>
 </html>

@@ -229,6 +229,12 @@ Page({
   // 解压「变色」切换主页背景 + 状态栏颜色
   onPageBgChange(e) { this.applyTheme(e.detail.idx); },
 
+  // 解压面板里的「📡 扫码取文件」：收起面板并跳到扫码页
+  onVentScan() {
+    this.setData({ ventOpen: false });
+    wx.navigateTo({ url: "/pages/cimbar/cimbar" });
+  },
+
   // ---------- 月历双击快速请假 ----------
   onQuickLeave(e) {
     const dk = e.detail.dateKey;

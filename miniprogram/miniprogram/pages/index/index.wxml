@@ -123,6 +123,6 @@
 
   <view class="fab" bindtap="toggleVent">🎈</view>
 
-  <!-- 解压发泄：透明小弹窗（再次点击按钮可收起）-->
-  <vent show="{{ventOpen}}" bind:changebg="onPageBgChange"></vent>
+  <!-- 解压发泄：透明小弹窗（再次点击按钮可收起）；里面的「📡 扫码取文件」会跳到扫码页 -->
+  <vent show="{{ventOpen}}" bind:changebg="onPageBgChange" bind:scan="onVentScan"></vent>
 </view>

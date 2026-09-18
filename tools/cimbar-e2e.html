@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cimbar 端到端验证（编码 → 取像素 → 解码 → 还原）</title>
+<style>
+  body { font-family: ui-monospace, Menlo, Consolas, monospace; background:#111; color:#ddd; margin:0; padding:16px; }
+  h1 { font-size: 15px; margin: 0 0 12px; }
+  #log { white-space: pre-wrap; font-size: 12px; line-height: 1.6; }
+  #verdict { font-size: 18px; font-weight: 700; margin: 10px 0; }
+  .ok { color: #4ade80; }
+  .bad { color: #f87171; }
+  canvas { display: block; margin-top: 12px; max-width: 100%; border: 1px solid #333; }
+  #cimbarOverlay { display: none; }
+</style>
+</head>
+<body>
+<h1>cimbar 端到端验证：编码 → 读像素 → 解码器 → zstd 解压 → 逐字节比对</h1>
+<div id="verdict">运行中…</div>
+<div id="log"></div>
+<canvas id="enc"></canvas>
+
+<!-- cimbar-recv.js（网页/App 端）需要的 DOM 骨架，本测试不启动摄像头 -->
+<div id="cimbarOverlay">
+  <video id="cimbarVideo" muted playsinline></video>
+  <div id="cimbarFrame"></div>
+  <div id="cimbarStatus"></div>
+  <div id="cimbarBars"></div>
+  <div id="cimbarMode"></div>
+  <button id="cimbarClose"></button>
+</div>
+
+<script>
+  window.__e2e = { log: [], done: false, ok: false, frames: 0, engine: "" };
+</script>
+<script>
+  // 编码端需要 Module.canvas；网页端 cimbar-recv.js 会 merge 而不是覆盖
+  window.Module = { canvas: document.getElementById("enc") };
+
+  // ---- 小程序端等价 shim ----
+  // 1) WXWebAssembly：把「代码包内路径」映射到本测试服务上的文件
+  //    （小程序里是 .wasm.br，浏览器 DecompressionStream 不支持 brotli，这里直接指向未压缩的 wasm）
+  window.WXWebAssembly = {
+    instantiate: function (path, imports) {
+      var url = String(path).indexOf(".br") >= 0 ? "cimbar/cimbar_js.wasm" : path;
+      return fetch(url)
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status + " " + url);
+          return r.arrayBuffer();
+        })
+        .then(function (buf) { return WebAssembly.instantiate(buf, imports); })
+        .then(function (res) { return { instance: res.instance, module: res.module }; });
+    },
+  };
+
+  // 2) 极简 CommonJS：把 miniprogram 下的源码当模块加载（源码由测试页 fetch 进来）
+  window.__loadMpModule = function (registry, entry) {
+    var cache = {};
+    function normalize(base, p) {
+      if (p.charAt(0) !== ".") return p;
+      var parts = base.split("/").slice(0, -1).concat(p.split("/"));
+      var out = [];
+      parts.forEach(function (s) {
+        if (s === "." || s === "") return;
+        if (s === "..") out.pop();
+        else out.push(s);
+      });
+      return out.join("/");
+    }
+    function req(base, p) {
+      var full = normalize(base, p);
+      if (cache[full]) return cache[full].exports;
+      if (registry[full] === undefined) throw new Error("模块未注册：" + full);
+      var m = { exports: {} };
+      cache[full] = m;
+      new Function("module", "exports", "require", registry[full])(m, m.exports, function (q) {
+        return req(full, q);
+      });
+      return m.exports;
+    }
+    return req("", entry);
+  };
+</script>
+<script src="cimbar/cimbar-recv.js"></script>
+<script>
+(function () {
+  "use strict";
+  var R = window.__e2e;
+  var out = document.getElementById("log");
+  function log(m) { R.log.push(String(m)); out.textContent += m + "\n"; }
+  function verdict(ok, m) {
+    R.ok = ok; R.done = true;
+    var v = document.getElementById("verdict");
+    v.textContent = (ok ? "✅ PASS — " : "❌ FAIL — ") + m;
+    v.className = ok ? "ok" : "bad";
+    log((ok ? "PASS " : "FAIL ") + m);
+  }
+  window.onerror = function (e) { if (!R.done) verdict(false, "脚本异常：" + e); };
+
+  var Q = new URLSearchParams(location.search);
+  var ENGINE = Q.get("engine") === "mp" ? "mp" : "web";
+  R.engine = ENGINE;
+
+  function makePayload() {
+    var target = parseInt(Q.get("bytes") || "4000", 10);
+    var bytes;
+    if (Q.get("random") === "1") {
+      // 不可压缩数据，更接近真实文件（图片/压缩包），会跑出更多帧
+      bytes = new Uint8Array(target);
+      for (var i = 0; i < target; i++) bytes[i] = (Math.random() * 256) | 0;
+    } else {
+      var s = "下班了吗 · cimbar 端到端验证\n" + new Date().toISOString() + "\n";
+      while (s.length < target) s += s;
+      bytes = new TextEncoder().encode(s);
+    }
+    return { name: Q.get("name") || "cimbar-e2e.txt", bytes: bytes };
+  }
+
+  function toWasm(M, u8) {
+    var p = M._malloc(u8.length);
+    new Uint8Array(M.HEAPU8.buffer, p, u8.length).set(u8);
+    return p;
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  /** 载入 miniprogram 下的解码器（走 CommonJS shim） */
+  async function loadMpDecoder() {
+    var base = "mp/utils/cimbar/";
+    var files = ["decoder.js", "cimbar_glue.js", "version.js"];
+    var registry = {};
+    for (var i = 0; i < files.length; i++) {
+      var res = await fetch(base + files[i]);
+      if (!res.ok) throw new Error("取不到 " + base + files[i] + "（HTTP " + res.status + "）");
+      registry["utils/cimbar/" + files[i]] = await res.text();
+    }
+    return window.__loadMpModule(registry, "utils/cimbar/decoder.js");
+  }
+
+  async function run() {
+    var payload = makePayload();
+    log("引擎：" + (ENGINE === "mp"
+      ? "小程序端 decoder.js（WXWebAssembly + CommonJS shim）"
+      : "网页/App 端 cimbar-recv.js（Worker 池）"));
+    log("原始文件：" + payload.name + "，" + payload.bytes.length + " 字节");
+
+    // ---------- 0. 初始化被测解码器 ----------
+    // 编码器固定用网页端加载出来的那份 wasm 实例（挂在 window.Module 上）
+    await window.CimbarRecv._ready();
+
+    var web = null, mp = null;
+    if (ENGINE === "mp") {
+      // 小程序端解码器是独立的一份 wasm 实例，正好顺带验证「同页面两个实例互不干扰」
+      mp = await loadMpDecoder();
+      await mp.init();
+      log("小程序解码器就绪，喷泉码单块上限 " + mp.blockSize() + " 字节");
+    } else {
+      web = window.CimbarRecv;
+      log("网页解码器就绪（wasm 已加载，Worker 池已启动）");
+    }
+
+    // ---------- 1. 用同一个 wasm 模块当编码器 ----------
+    var M = window.Module;
+    var MODE = 68; // B 模式
+    M._cimbare_configure(MODE, -1);
+    log("编码模式 B，宽高比 " + M._cimbare_get_aspect_ratio().toFixed(4));
+    log("init_window=" + M._cimbare_init_window(0, 0));
+    var cv = document.getElementById("enc");
+    var W = cv.width, H = cv.height;
+    log("画面 " + W + "x" + H);
+
+    var namePtr = toWasm(M, new TextEncoder().encode(payload.name));
+    log("init_encode=" + M._cimbare_init_encode(namePtr, payload.name.length, -1));
+    M._free(namePtr);
+
+    var chunk = M._cimbare_encode_bufsize() * 16;
+    var lastRes = 1;
+    for (var off = 0; off < payload.bytes.length; off += chunk) {
+      var part = payload.bytes.subarray(off, off + chunk);
+      var p = toWasm(M, part);
+      lastRes = M._cimbare_encode(p, part.length);
+      M._free(p);
+    }
+    // 官方 sender 也会再空喂一次做 flush；数据不是 bufsize 整数倍时返回 -1，属正常
+    var flush = M._cimbare_encode(0, 0);
+    if (!(lastRes === 0 || flush === 0)) {
+      verdict(false, "编码流创建失败（encode 返回 " + lastRes + "/" + flush + "）");
+      return;
+    }
+
+    var gl = M.ctx;
+    if (!gl) { verdict(false, "拿不到 WebGL 上下文（Module.ctx 为空），headless 可能没开 GL"); return; }
+    var raw = new Uint8Array(W * H * 4);
+    var flipped = new Uint8Array(W * H * 4);
+
+    // ---------- 2. 网页端：拦下保存回调，改成在页面内比对 ----------
+    var webFile = null, webName = null;
+    if (web) {
+      window.Zstd.download_blob = function (name, blob) {
+        webName = name;
+        blob.arrayBuffer().then(function (ab) { webFile = new Uint8Array(ab); });
+      };
+    }
+
+    // ---------- 3. 渲染 → 取像素 → 喂解码器 ----------
+    var mpFile = null, mpName = null;
+    var lastReport = "";
+    for (var f = 0; f < 2000; f++) {
+      if (ENGINE === "mp" ? mpFile : webFile) break;
+
+      M._cimbare_next_frame(false);
+      if (M._cimbare_render() !== 1) continue;
+
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, raw);
+      // GL 的 readPixels 是自下而上，翻正
+      for (var y = 0; y < H; y++) {
+        flipped.set(raw.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);
+      }
+      if (R.frames === 0) {
+        var sum = 0;
+        for (var i = 0; i < raw.length; i += 997) sum += raw[i];
+        log("首帧像素校验和 " + sum);
+        if (sum === 0) { verdict(false, "编码渲染出来是空白画面，GL 没真正工作"); return; }
+      }
+
+      R.frames++;
+      if (ENGINE === "mp") {
+        var r = mp.feed(flipped.slice(), W, H, MODE);
+        if (r.file) {
+          mpFile = new Uint8Array(r.file.buffer);
+          mpName = r.file.name;
+        } else if (r.progress) {
+          var txt = "已收到 " + Math.round((r.progress[0] || 0) * 100) + "%";
+          if (txt !== lastReport) { log("第 " + R.frames + " 帧：" + txt); lastReport = txt; }
+        } else if (r.message && r.message !== lastReport) {
+          log("第 " + R.frames + " 帧：" + r.message);
+          lastReport = r.message;
+        }
+      } else {
+        web._feed(flipped.slice(), W, H);
+        await sleep(25);
+        var st = document.getElementById("cimbarStatus");
+        if (st && st.textContent && st.textContent !== lastReport) {
+          log("第 " + R.frames + " 帧：" + st.textContent);
+          lastReport = st.textContent;
+        }
+      }
+    }
+
+    if (ENGINE === "web") {
+      for (var w = 0; w < 60 && !webFile; w++) await sleep(100);
+    }
+    var decoded = ENGINE === "mp" ? mpFile : webFile;
+    var savedName = ENGINE === "mp" ? mpName : webName;
+    log("共投喂 " + R.frames + " 帧");
+
+    if (!decoded) { verdict(false, "没有还原出文件（投喂 " + R.frames + " 帧后仍无结果）"); return; }
+
+    var same = decoded.length === payload.bytes.length;
+    if (same) {
+      for (var k = 0; k < decoded.length; k++) {
+        if (decoded[k] !== payload.bytes[k]) { same = false; break; }
+      }
+    }
+    // ?tamper=1 自检：故意改掉原始数据一个字节，确认「比对」这一步不是走过场
+    if (Q.get("tamper") === "1") {
+      payload.bytes[0] = payload.bytes[0] ^ 0xff;
+      var recheck = decoded.length === payload.bytes.length && decoded[0] === payload.bytes[0];
+      log("自检（篡改原始数据首字节）：比对" + (recheck ? "仍然通过 → 比对逻辑无效！" : "如期失败 → 比对逻辑有效"));
+      payload.bytes[0] = payload.bytes[0] ^ 0xff;
+      if (recheck) { verdict(false, "比对逻辑无效，测试结果不可信"); return; }
+    }
+
+    log("还原文件名：" + savedName + "，大小 " + decoded.length + " 字节");
+    verdict(same, same
+      ? "字节完全一致（" + decoded.length + " 字节 / " + R.frames + " 帧）"
+      : "字节不一致：期望 " + payload.bytes.length + " 实际 " + decoded.length);
+  }
+
+  run().catch(function (e) { verdict(false, "异常：" + (e && e.stack ? e.stack : e)); });
+})();
+</script>
+</body>
+</html>

@@ -2,7 +2,8 @@
   "pages": [
     "pages/index/index",
     "pages/settings/settings",
-    "pages/transfer/transfer"
+    "pages/transfer/transfer",
+    "pages/cimbar/cimbar"
   ],
   "window": {
     "navigationBarBackgroundColor": "#667eea",
