@@ -73,7 +73,7 @@ const ASSETS = [
 fs.writeFileSync(
   path.join(OUT, "sw.js"),
   `/* 由 tools/build-web.js 生成 */
-const CACHE = "work-countdown-v2";
+const CACHE = "work-countdown-v3";
 const ASSETS = ${JSON.stringify(ASSETS)};
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));

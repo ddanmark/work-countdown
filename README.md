@@ -34,6 +34,11 @@
 - 单块 7.5 KB，一帧一个块；文件越大需要扫的帧数越多（例如 200 KB 约 30 帧）
 - 想升级解码器版本：改 `tools/vendor-cimbar.js` 顶部的 `VERSION` / `BUILD`，再跑 `node tools/vendor-cimbar.js`
 
+**必须让动态码填满取景框。** libcimbar 的解码器要求码在**喂进去的图像**里占到宽度约 45% 以上，
+否则会一直返回 `-3`（找得到码但解不出）——画面看着挺清楚也没用，这是分辨率问题不是对焦问题。
+所以三端都只喂「取景框那一块」（画面中央的正方形），并按 `1.0 / 0.7 / 0.5` 三档变焦轮流试，
+命中后锁定档位；长时间没有新数据会自动重新找档位（用户挪动了手机时）。
+
 ## 目录结构
 
 ```
@@ -97,6 +102,10 @@ bash tools/test-java.sh       # WidgetConfig 黄金向量（需 JDK 21）
 npm i -D playwright && npx playwright install chromium
 node tools/test-cimbar-e2e.js --bytes=40000 --random          # 网页/App 端
 node tools/test-cimbar-e2e.js --engine=mp --bytes=40000 --random  # 小程序端解码器
+
+# 模拟真机「拿摄像头拍另一块屏幕」：把动态码缩到画面中央再解码
+# --scale 是码占画面短边的比例，--zooms 走生产代码的取景框裁剪路径
+node tools/test-cimbar-e2e.js --bytes=40000 --random --scene --scale=0.4 --zooms=1,0.7,0.5
 ```
 
 `tools/cimbar-e2e.html` 会用同一个 wasm 模块既当发送端又当接收端：把一段字节渲染成

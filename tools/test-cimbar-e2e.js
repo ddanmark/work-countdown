@@ -31,6 +31,25 @@ const RANDOM = process.argv.indexOf("--random") >= 0 ? "&random=1" : "";
 const TAMPER = process.argv.indexOf("--no-tamper") >= 0 ? "" : "&tamper=1";
 // --engine=mp 时验证小程序端的 decoder.js，否则验证网页/App 端的 cimbar-recv.js
 const ENGINE = process.argv.indexOf("--engine=mp") >= 0 ? "mp" : "web";
+// --scene 模拟「拿摄像头拍另一块屏幕」：把动态码缩到画面中央再喂给解码器
+// 配套参数：--scale=0.6 --sw=1080 --sh=1920 --rot=0
+function argVal(name, dflt) {
+  const hit = process.argv.find((a) => a.indexOf("--" + name + "=") === 0);
+  return hit ? hit.split("=")[1] : dflt;
+}
+const EXTRA = [];
+if (process.argv.indexOf("--scene") >= 0) {
+  EXTRA.push("&scene=1", "&scale=" + argVal("scale", "0.6"), "&sw=" + argVal("sw", "1080"), "&sh=" + argVal("sh", "1920"), "&crop=" + argVal("crop", "1"), "&max=" + argVal("max", "2000"));
+  // --sq[=短边占比]：只喂画面中央的正方形（生产代码的取景框做法）
+  // --sqs=1,0.7,0.5：逐帧轮换多档取景框
+  if (process.argv.indexOf("--sq") >= 0 || argVal("sq", "") !== "" || argVal("sqs", "") !== "") {
+    EXTRA.push("&sq=" + argVal("sq", "1"), "&sqo=" + argVal("sqo", "1024"));
+    if (argVal("sqs", "") !== "") EXTRA.push("&sqs=" + argVal("sqs", ""));
+  }
+  if (argVal("rot", "0") !== "0") EXTRA.push("&rot=" + argVal("rot", "0"));
+  // --zooms=1,0.7,0.5：走生产代码的取景框裁剪路径（不预先裁剪场景，喂整帧）
+  if (argVal("zooms", "") !== "") EXTRA.push("&zooms=" + argVal("zooms", ""));
+}
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -118,7 +137,7 @@ const server = http.createServer((req, res) => {
 
   let ok = false;
   try {
-    await page.goto(`http://127.0.0.1:${PORT}/_cimbar-e2e.html?engine=${ENGINE}&bytes=${BYTES}${RANDOM}${TAMPER}`, { waitUntil: "load" });
+    await page.goto(`http://127.0.0.1:${PORT}/_cimbar-e2e.html?engine=${ENGINE}&bytes=${BYTES}${RANDOM}${TAMPER}${EXTRA.join("")}`, { waitUntil: "load" });
     await page.waitForFunction("window.__e2e && window.__e2e.done", null, { timeout: 300000 });
     const r = await page.evaluate("window.__e2e");
     console.log(r.log.join("\n"));

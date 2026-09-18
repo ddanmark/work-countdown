@@ -1599,8 +1599,9 @@ body::after  { width: 300px; height: 300px; bottom: -100px; right: -80px; }
   position: absolute;
   left: 50%;
   top: 50%;
-  width: min(76vw, 62vh);
-  height: min(76vw, 62vh);
+  /* 正方形取景框 = 画面短边的 70%，与解码时默认的裁剪档位对应 */
+  width: min(70vw, 70vh);
+  height: min(70vw, 70vh);
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -1655,6 +1656,16 @@ body::after  { width: 300px; height: 300px; bottom: -100px; right: -80px; }
   border-radius: 3px;
   background: linear-gradient(90deg, #667eea, #4ade80);
   transition: width 0.2s linear;
+}
+/* 调试读数：扫不出来时靠它区分「没取到帧 / 没找到码 / 找到了解不出」 */
+.cimbar-diag {
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
 /* ===== 全屏特效：震屏 / 挤压 / 裂痕 ===== */

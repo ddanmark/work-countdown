@@ -5,12 +5,22 @@
 //
 // 注意：cimbard_configure_decode 切换模式时会重置喷泉码状态（上游 C++ 里 _sink.reset()），
 // 所以识别出模式后必须锁定，不能在多模式间来回切。
+//
+// 2026-09 修复：真机扫不出来，两个原因
+//   1) 取景框裁剪：libcimbar 解码器要求动态码在输入图像里占到宽度约 45% 以上，
+//      整帧喂进去（竖屏拍横屏显示器）码太小，一直返回 -3（找到码但解不出）。
+//      现在只喂取景框那一块，并按档位变焦覆盖不同距离。
+//   2) 取帧时机：onCameraFrame 必须在 camera 组件初始化完成（bindinitdone）之后 start，
+//      否则监听器收不到任何帧（旧代码在 onLoad 里就 start 了）。
 const decoder = require("../../utils/cimbar/decoder.js");
 
 const MODE_ORDER = [68, 66, 67, 4]; // 先试 B（cimbar.org 发送端默认），再 Bu / Bm / 4C
 const MODE_NAMES = { 4: "4C", 8: "8C", 66: "Bu", 67: "Bm", 68: "B" };
 const PROBE_PER_MODE = 4; // 每个模式最多试几帧，没扫出东西就换下一个
+// 取景框档位：正方形边长 = 画面短边 × 该比例。越小等效变焦越大，覆盖更远的距离。
+const ZOOMS = [1, 0.7, 0.5];
 const MIN_FRAME_GAP = 90; // 主线程解码，节流到最多约 11 帧/秒
+const STALL_FRAMES = 150; // 提取过但这么久没新数据 → 认为挪了手机，重新找档位
 const MAX_FILE_BYTES = 64 * 1024 * 1024;
 
 const DOC_TYPES = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf", "csv", "md"];
@@ -25,6 +35,7 @@ Page({
     status: "正在准备解码器…",
     bars: [],
     frameState: "",
+    diag: "",
   },
 
   onLoad() {
@@ -33,14 +44,19 @@ Page({
     this.probeIdx = 0;
     this.probeCount = 0;
     this.lockedMode = 0; // 0 = 自动识别中
+    this.zoomIdx = 0;
+    this.lockedZoom = 0; // 0 = 取景框档位还没锁定
     this.solved = false;
     this.listener = null;
+    this.cameraReady = false;
+    this.stats = { frames: 0, extract: 0, nodata: 0, failed: 0 };
+    this.recentDecodeAt = 0;
 
     decoder
       .init()
       .then(() => {
-        this.setData({ status: "把镜头对准屏幕上的动态码" });
-        this.startFrames();
+        this.setData({ status: "让动态码填满取景框（离近一点更清楚）" });
+        this.tryStartFrames();
       })
       .catch((e) => {
         this.setData({ status: "⚠️ " + (e && e.message ? e.message : e) });
@@ -48,7 +64,7 @@ Page({
   },
 
   onShow() {
-    if (decoder.isReady()) this.startFrames();
+    this.tryStartFrames();
   },
   onHide() {
     this.stopFrames();
@@ -60,13 +76,23 @@ Page({
   // ---------- 摄像头 ----------
   onCameraInit() {
     this.setData({ cameraOk: true });
+    this.cameraReady = true;
+    this.tryStartFrames();
   },
   onCameraError(e) {
     const msg = (e && e.detail && e.detail.errMsg) || "";
+    this.cameraReady = false;
     this.setData({
       cameraOk: false,
       camError: "摄像头不可用（" + msg + "）\n请在「设置」里允许小程序使用摄像头后重进本页",
     });
+  },
+
+  /** 取帧必须在「解码器就绪」且「camera 组件 initdone」之后，否则收不到任何帧 */
+  tryStartFrames() {
+    if (!this.cameraReady) return;
+    if (!decoder.isReady()) return;
+    this.startFrames();
   },
 
   startFrames() {
@@ -98,18 +124,22 @@ Page({
     this.lastFrameAt = now;
 
     const mode = this.lockedMode || MODE_ORDER[this.probeIdx % MODE_ORDER.length];
+    const zoom = this.lockedZoom || ZOOMS[this.zoomIdx % ZOOMS.length];
 
     let r;
     try {
-      r = decoder.feed(frame.data, frame.width, frame.height, mode);
+      r = decoder.feed(frame.data, frame.width, frame.height, mode, zoom);
     } catch (e) {
       this.setData({ status: "⚠️ 解码异常：" + (e && e.message ? e.message : e) });
       return;
     }
     this.frames++;
+    this.stats.frames++;
 
     if (!r.extracted) {
-      // 这个模式下扫不出东西：自动识别时换下一个模式
+      if (r.code === 0) this.stats.nodata++;
+      else if (r.code < 0) this.stats.failed++;
+      // 这个模式 / 档位扫不出东西：自动识别时换下一个
       if (!this.lockedMode) {
         this.probeCount++;
         if (this.probeCount >= PROBE_PER_MODE) {
@@ -117,15 +147,22 @@ Page({
           this.probeIdx++;
         }
       }
+      if (!this.lockedZoom) this.zoomIdx++;
+      this.updateDiag();
       return;
     }
 
-    // 扫出东西了：锁定模式（切模式会重置喷泉码状态，不能来回切）
+    // 扫出东西了：锁定模式与取景框档位
+    // （切模式会重置喷泉码状态，不能来回切；档位锁住避免不同档位的块混在一起）
+    this.stats.extract++;
+    this.recentDecodeAt = this.frames;
     if (!this.lockedMode) {
       this.lockedMode = mode;
       this.probeCount = 0;
       this.setData({ modeText: "已识别：" + (MODE_NAMES[mode] || mode) });
     }
+    if (!this.lockedZoom) this.lockedZoom = zoom;
+    this.updateDiag();
 
     if (r.file) {
       this.onSolved(r.file);
@@ -136,6 +173,17 @@ Page({
     } else if (r.message) {
       this.setData({ status: String(r.message) });
     }
+  },
+
+  /** 调试用读数：扫不出来时靠它区分「没取到帧 / 没找到码 / 找到了解不出」 */
+  updateDiag() {
+    const s = this.stats;
+    const zoom = this.lockedZoom || ZOOMS[this.zoomIdx % ZOOMS.length];
+    const diag =
+      "帧 " + s.frames + " · 找到码 " + (s.nodata + s.extract + s.failed) +
+      " · 提取 " + s.extract + " · 解不出 " + s.failed +
+      " · 变焦 " + Math.round(zoom * 100) + "%";
+    if (diag !== this.data.diag) this.setData({ diag: diag });
   },
 
   renderProgress(report) {
@@ -152,6 +200,14 @@ Page({
         ? "已收到 " + Math.round((report[0] || 0) * 100) + "%"
         : "已收到 " + done + "/" + total + " 个文件";
     this.setData({ bars: bars, status: status, frameState: "hit" });
+
+    // 提取过但很久没有新数据 → 大概率是用户挪了手机，换回自动找档位
+    if (this.stats.extract > 0 && this.recentDecodeAt > 0 &&
+        this.frames - this.recentDecodeAt > STALL_FRAMES) {
+      this.lockedZoom = 0;
+      this.zoomIdx++;
+      this.recentDecodeAt = this.frames;
+    }
   },
 
   // ---------- 收完：落盘并交给系统 ----------
@@ -244,6 +300,10 @@ Page({
           this.lockedMode = m;
           this.setData({ modeText: "已识别：" + (MODE_NAMES[m] || m) });
         }
+        // 手动改模式后也把取景框档位放回自动，重新找一遍
+        this.lockedZoom = 0;
+        this.zoomIdx = 0;
+        this.recentDecodeAt = 0;
         this.setData({ bars: [], frameState: "" });
       },
       fail: () => {},

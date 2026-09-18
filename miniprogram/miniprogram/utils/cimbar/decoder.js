@@ -157,21 +157,36 @@ function configure(mode) {
   ensure("fountain", Module._cimbard_get_bufsize());
 }
 
-/** 扫一帧：从 RGBA 像素里提取喷泉码数据块 */
-function extract(rgba, width, height) {
-  const need = width * height * 4;
+/** 扫一帧：从 RGBA 像素里提取喷泉码数据块
+ *
+ * zoom：取景框档位（正方形边长 = 画面短边 × zoom）。必须裁！
+ * libcimbar 的解码器要求动态码在输入图像里占到宽度约 45% 以上，否则一直返回
+ * -3（找到码但解不出）。手机竖屏拍横屏显示器时整帧喂进去码太小，永远解不出来。
+ * 裁剪不增加像素，但让码在输入里占的比例变大，就能解了。
+ */
+function extract(rgba, width, height, zoom) {
   const src = rgba instanceof ArrayBuffer ? new Uint8Array(rgba) : rgba;
-  if (!src || src.length < need) return { code: -100 };
+  if (!src || !width || !height || src.length < width * height * 4) return { code: -100 };
 
-  const img = ensure("img", need);
+  const frac = zoom > 0 && zoom <= 1 ? zoom : 1;
+  const side = Math.max(64, Math.round(Math.min(width, height) * frac));
+  const sx = Math.round((width - side) / 2);
+  const sy = Math.round((height - side) / 2);
+  const stride = side * 4;
+
+  // 直接按行拷进 wasm 堆，省掉一次整帧拷贝
+  const img = ensure("img", side * side * 4);
   const imgPtr = img.byteOffset;
-  img.set(src.subarray(0, need), 0);
+  for (let y = 0; y < side; y++) {
+    const s = ((sy + y) * width + sx) * 4;
+    img.set(src.subarray(s, s + stride), y * stride);
+  }
 
   const fb = ensure("fountain", Module._cimbard_get_bufsize());
   const fbPtr = fb.byteOffset;
   const fbLen = fb.byteLength;
 
-  const len = Module._cimbard_scan_extract_decode(imgPtr, width, height, FMT_RGBA, fbPtr, fbLen);
+  const len = Module._cimbard_scan_extract_decode(imgPtr, side, side, FMT_RGBA, fbPtr, fbLen);
   if (len <= 0) return { code: len };
   // 拷贝出来：wasm 内存随时可能被下一次调用覆盖
   const block = new Uint8Array(Module.HEAPU8.buffer, fbPtr, len).slice();
@@ -229,13 +244,14 @@ function reassemble(id) {
  * @param {number} width
  * @param {number} height
  * @param {number} mode  编码模式（自动识别时由页面逐帧轮换）
+ * @param {number} [zoom] 取景框档位（正方形边长 = 画面短边 × zoom），默认 1
  * @returns {{extracted:boolean, code:number, progress?:number[], message?:string, file?:object}}
  */
-function feed(rgba, width, height, mode) {
+function feed(rgba, width, height, mode, zoom) {
   if (!ready) return { extracted: false, code: 0, message: "解码器未就绪" };
   if (mode) configure(mode);
 
-  const r = extract(rgba, width, height);
+  const r = extract(rgba, width, height, zoom);
   if (!r.block) return { extracted: false, code: r.code };
 
   const fb = ensure("fountain", Module._cimbard_get_bufsize());

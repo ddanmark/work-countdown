@@ -43,6 +43,7 @@
       <view class="tool" bindtap="toggleFlash">{{flash === 'torch' ? '🔦 补光开' : '🔦 补光关'}}</view>
       <view class="tool" bindtap="toggleFrameSize">📐 {{frameSize === 'large' ? '高分辨率' : '中分辨率'}}</view>
     </view>
-    <view class="hint">把另一台设备上的动态码对准镜头，尽量填满取景框。文件越大需要扫得越久（约 7.5 KB/帧）。</view>
+    <view class="diag" wx:if="{{diag}}">{{diag}}</view>
+    <view class="hint">把另一台设备上的动态码对准取景框、尽量填满。文件越大需要扫得越久（约 7.5 KB/帧）。</view>
   </view>
 </view>

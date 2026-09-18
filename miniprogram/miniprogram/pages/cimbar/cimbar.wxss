@@ -44,8 +44,9 @@ page { background: #000; }
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 76vw;
-  height: 76vw;
+  /* 正方形取景框 = 画面短边的 70%，与解码时默认的裁剪档位对应 */
+  width: 70vw;
+  height: 70vw;
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -161,5 +162,13 @@ page { background: #000; }
   color: rgba(255, 255, 255, 0.62);
   font-size: 22rpx;
   line-height: 1.6;
+  text-align: center;
+}
+/* 调试读数：扫不出来时靠它区分「没取到帧 / 没找到码 / 找到了解不出」 */
+.diag {
+  margin-top: 20rpx;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 20rpx;
+  line-height: 1.5;
   text-align: center;
 }

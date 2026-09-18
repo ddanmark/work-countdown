@@ -20,6 +20,7 @@
 <div id="verdict">运行中…</div>
 <div id="log"></div>
 <canvas id="enc"></canvas>
+<canvas id="scene" style="display:none"></canvas>
 
 <!-- cimbar-recv.js（网页/App 端）需要的 DOM 骨架，本测试不启动摄像头 -->
 <div id="cimbarOverlay">
@@ -124,6 +125,98 @@
   }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
+  // ---------- 模拟摄像头画面 ----------
+  // 真机是「拿摄像头拍另一块屏幕」，动态码只占画面一部分。这里把编码器渲染出来的
+  // 整屏动态码按比例缩到中央，背景填成室内色调，用来测「码占画面多大才解得动」。
+  var SCENE = Q.get("scene") === "1";
+  var SCENE_SCALE = parseFloat(Q.get("scale") || "0.6");
+  var SCENE_W = parseInt(Q.get("sw") || "1080", 10);
+  var SCENE_H = parseInt(Q.get("sh") || "1920", 10);
+  var SCENE_ROT = parseInt(Q.get("rot") || "0", 10);
+  // 数码变焦：只取画面中央 crop 比例的区域，再拉回原尺寸（模拟「镜头拉近/裁剪」）
+  var SCENE_CROP = parseFloat(Q.get("crop") || "1");
+  var sceneCanvas = document.getElementById("scene");
+  var sceneCtx = null;
+  var srcCanvas = null;
+  var srcCtx = null;
+  var frameNo = 0;
+  // zooms=1,0.7,0.5：走生产代码的裁剪路径（cropRect），逐帧轮换取景框档位
+  var ZOOMS = (Q.get("zooms") || "").split(",").filter(Boolean).map(parseFloat);
+  var ZOOM = 1;
+
+  function makeScene(src, sw, sh) {
+    if (!sceneCtx) {
+      sceneCanvas.width = SCENE_W;
+      sceneCanvas.height = SCENE_H;
+      sceneCtx = sceneCanvas.getContext("2d", { willReadFrequently: true });
+      srcCanvas = document.createElement("canvas");
+      srcCanvas.width = sw;
+      srcCanvas.height = sh;
+      srcCtx = srcCanvas.getContext("2d", { willReadFrequently: true });
+    }
+    srcCtx.putImageData(new ImageData(new Uint8ClampedArray(src), sw, sh), 0, 0);
+
+    // 背景：房间的暗色
+    sceneCtx.fillStyle = "#23262b";
+    sceneCtx.fillRect(0, 0, SCENE_W, SCENE_H);
+
+    var side = Math.round(Math.min(SCENE_W, SCENE_H) * SCENE_SCALE);
+    sceneCtx.save();
+    sceneCtx.translate(SCENE_W / 2, SCENE_H / 2);
+    if (SCENE_ROT) sceneCtx.rotate((SCENE_ROT * Math.PI) / 180);
+    sceneCtx.drawImage(srcCanvas, -side / 2, -side / 2, side, side);
+    sceneCtx.restore();
+
+    if (SCENE_CROP >= 1 && Q.get("sq") === null) {
+      var img = sceneCtx.getImageData(0, 0, SCENE_W, SCENE_H);
+      return { pixels: new Uint8Array(img.data.buffer), width: SCENE_W, height: SCENE_H };
+    }
+    // sq=<短边占比>：取画面中央的正方形（边长 = 短边 × 占比），放大到 sqo（默认 1024）
+    // 对应生产代码里的做法：只喂取景框那一块，并拉到固定的工作分辨率
+    // sqs=1,0.7,0.5：逐帧轮换多档取景框（多档变焦），覆盖不同距离
+    if (Q.get("sq") !== null || Q.get("sqs")) {
+      var list = Q.get("sqs")
+        ? Q.get("sqs").split(",").map(parseFloat)
+        : [parseFloat(Q.get("sq") || "1") || 1];
+      var frac = list[frameNo % list.length];
+      var outSize = parseInt(Q.get("sqo") || "1024", 10);
+      var side2 = Math.round(Math.min(SCENE_W, SCENE_H) * frac);
+      var ox = Math.round((SCENE_W - side2) / 2);
+      var oy = Math.round((SCENE_H - side2) / 2);
+      var sq = sceneCtx.getImageData(ox, oy, side2, side2);
+      var tc = document.createElement("canvas");
+      tc.width = side2;
+      tc.height = side2;
+      tc.getContext("2d").putImageData(sq, 0, 0);
+      var oc = document.createElement("canvas");
+      oc.width = outSize;
+      oc.height = outSize;
+      var octx = oc.getContext("2d", { willReadFrequently: true });
+      octx.imageSmoothingEnabled = true;
+      octx.imageSmoothingQuality = "high";
+      octx.drawImage(tc, 0, 0, side2, side2, 0, 0, outSize, outSize);
+      var oimg = octx.getImageData(0, 0, outSize, outSize);
+      return { pixels: new Uint8Array(oimg.data.buffer), width: outSize, height: outSize };
+    }
+    // 取中央 crop 比例的区域 → 缩放回原尺寸
+    var cw = Math.round(SCENE_W * SCENE_CROP);
+    var ch = Math.round(SCENE_H * SCENE_CROP);
+    var cx = Math.round((SCENE_W - cw) / 2);
+    var cy = Math.round((SCENE_H - ch) / 2);
+    var sub = sceneCtx.getImageData(cx, cy, cw, ch);
+    var zc = document.createElement("canvas");
+    zc.width = SCENE_W;
+    zc.height = SCENE_H;
+    var zctx = zc.getContext("2d", { willReadFrequently: true });
+    var tmp2 = document.createElement("canvas");
+    tmp2.width = cw;
+    tmp2.height = ch;
+    tmp2.getContext("2d").putImageData(sub, 0, 0);
+    zctx.drawImage(tmp2, 0, 0, cw, ch, 0, 0, SCENE_W, SCENE_H);
+    var zimg = zctx.getImageData(0, 0, SCENE_W, SCENE_H);
+    return { pixels: new Uint8Array(zimg.data.buffer), width: SCENE_W, height: SCENE_H };
+  }
+
   /** 载入 miniprogram 下的解码器（走 CommonJS shim） */
   async function loadMpDecoder() {
     var base = "mp/utils/cimbar/";
@@ -202,10 +295,12 @@
       };
     }
 
-    // ---------- 3. 渲染 → 取像素 → 喂解码器 ----------
-    var mpFile = null, mpName = null;
-    var lastReport = "";
-    for (var f = 0; f < 2000; f++) {
+  // ---------- 3. 渲染 → 取像素 → 喂解码器 ----------
+  var mpFile = null, mpName = null;
+  var lastReport = "";
+  var codes = {}; // 提取结果分布：0=没找到码, -3=找到了但解不出, >0=提取到字节
+  var MAXF = parseInt(Q.get("max") || "2000", 10);
+  for (var f = 0; f < MAXF; f++) {
       if (ENGINE === "mp" ? mpFile : webFile) break;
 
       M._cimbare_next_frame(false);
@@ -224,8 +319,22 @@
       }
 
       R.frames++;
+      var feedPixels = flipped, feedW = W, feedH = H;
+      if (ZOOMS.length) ZOOM = ZOOMS[(R.frames - 1) % ZOOMS.length];
+      if (SCENE) {
+        frameNo = R.frames - 1;
+        var sc = makeScene(flipped, W, H);
+        feedPixels = sc.pixels; feedW = sc.width; feedH = sc.height;
+        if (R.frames === 1) {
+          log("模拟摄像头画面 " + feedW + "x" + feedH + "，动态码占 " +
+            (SCENE_SCALE * 100).toFixed(0) + "%（约 " +
+            Math.round(Math.min(feedW, feedH) * SCENE_SCALE) + "px）" +
+            (SCENE_ROT ? "，旋转 " + SCENE_ROT + "°" : ""));
+        }
+      }
       if (ENGINE === "mp") {
-        var r = mp.feed(flipped.slice(), W, H, MODE);
+        var r = mp.feed(feedPixels.slice(), feedW, feedH, MODE, ZOOM);
+        codes[r.code > 0 ? ">0" : String(r.code)] = (codes[r.code > 0 ? ">0" : String(r.code)] || 0) + 1;
         if (r.file) {
           mpFile = new Uint8Array(r.file.buffer);
           mpName = r.file.name;
@@ -237,7 +346,12 @@
           lastReport = r.message;
         }
       } else {
-        web._feed(flipped.slice(), W, H);
+        // 注意：_feed 会把 buffer transfer 给 Worker（原 buffer 被 detach），
+        // 所以复用 flipped 的路径必须切片
+        var cr = ZOOMS.length
+          ? web._crop(feedPixels, feedW, feedH, ZOOM)
+          : { pixels: feedPixels.slice(), width: feedW, height: feedH };
+        web._feed(cr.pixels, cr.width, cr.height);
         await sleep(25);
         var st = document.getElementById("cimbarStatus");
         if (st && st.textContent && st.textContent !== lastReport) {
@@ -253,6 +367,11 @@
     var decoded = ENGINE === "mp" ? mpFile : webFile;
     var savedName = ENGINE === "mp" ? mpName : webName;
     log("共投喂 " + R.frames + " 帧");
+    if (ENGINE === "mp") {
+      log("提取结果分布：" + Object.keys(codes).map(function (k) {
+        return k + " × " + codes[k] + (k === "0" ? "（画面里没找到码）" : k === "-3" ? "（找到码但解不出）" : "（提取到字节）");
+      }).join("，"));
+    }
 
     if (!decoded) { verdict(false, "没有还原出文件（投喂 " + R.frames + " 帧后仍无结果）"); return; }
 
