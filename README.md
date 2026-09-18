@@ -107,6 +107,9 @@ cimbar 动态码、读回像素、按真实路径喂给解码器，最后逐字�
 
 - push / PR 自动跑全套测试（`.github/workflows/ci.yml`），Java 测试用 `tools/vendor/android-stub.jar` 编译期 stub，不依赖 Android SDK
 - `app/www/**` 有改动并 push 到 main 后，自动构建并部署 GitHub Pages（`.github/workflows/pages.yml`）
+- 运行环境固定为 `ubuntu-24.04` + Node 22 + JDK 21（Temurin），不用 `ubuntu-latest`，避免 runner 镜像自动升级带来的意外
+- action 主版本：`checkout@v7`、`setup-node@v7`、`setup-java@v6`、`upload-pages-artifact@v5`、`deploy-pages@v5`（都是 Node 24 运行时）
+- `tools/test-java.sh` 需要 JDK 21+：`android-stub.jar` 是 Java 21 字节码，用 JDK 17 编译会报「类文件具有错误的版本 65.0」
 
 ### 数据镜像
 
