@@ -108,6 +108,17 @@ page { background: #000; }
   color: #fff;
   font-size: 24rpx;
 }
+.chips {
+  display: flex;
+  align-items: center;
+}
+.chips .chip {
+  margin-left: 16rpx;
+}
+/* 变焦胶囊：可点，一直「解不出」时用来手动换档位 */
+.chip-zoom {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+}
 
 /* ---------- 底栏 ---------- */
 .foot {

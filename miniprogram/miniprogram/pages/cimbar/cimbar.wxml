@@ -29,7 +29,10 @@
 
   <view class="head">
     <view class="icon-btn" bindtap="goBack">✕</view>
-    <view class="chip" bindtap="showModePicker">{{modeText}} ▾</view>
+    <view class="chips">
+      <view class="chip" bindtap="showModePicker">{{modeText}} ▾</view>
+      <view class="chip chip-zoom" bindtap="cycleZoom">{{zoomText}} ▾</view>
+    </view>
   </view>
 
   <view class="foot">

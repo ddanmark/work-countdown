@@ -21,6 +21,9 @@ const WASM_CANDIDATES = ["utils/cimbar/cimbar_js.wasm.br", "/utils/cimbar/cimbar
 // RGBA 像素格式的编号，与上游 cimbard_scan_extract_decode 的约定一致
 const FMT_RGBA = 4;
 const ERR_SIZE = 1024;
+// 裁剪后要放大到的边长上限，以及允许的最大放大倍数（超过 2 倍插值也换不回信息）
+const WORK_SIZE = 1024;
+const MAX_UPSCALE = 2;
 
 let Module = null;
 let readyPromise = null;
@@ -28,6 +31,20 @@ let ready = false;
 let currentMode = 0;
 
 const bufs = { img: null, fountain: null, err: null, decomp: null };
+
+// 放大时用的列索引表，按 (side, out) 缓存，避免每帧重算
+let colMap = null;
+let colMapKey = "";
+function colIndexMap(side, out) {
+  const key = side + ":" + out;
+  if (colMapKey !== key) {
+    const m = new Int32Array(out);
+    for (let x = 0; x < out; x++) m[x] = Math.floor((x * side) / out) * 4;
+    colMap = m;
+    colMapKey = key;
+  }
+  return colMap;
+}
 
 // ---------------------------------------------------------------- 工具
 
@@ -159,10 +176,14 @@ function configure(mode) {
 
 /** 扫一帧：从 RGBA 像素里提取喷泉码数据块
  *
- * zoom：取景框档位（正方形边长 = 画面短边 × zoom）。必须裁！
- * libcimbar 的解码器要求动态码在输入图像里占到宽度约 45% 以上，否则一直返回
- * -3（找到码但解不出）。手机竖屏拍横屏显示器时整帧喂进去码太小，永远解不出来。
- * 裁剪不增加像素，但让码在输入里占的比例变大，就能解了。
+ * zoom：取景框档位（正方形边长 = 画面短边 × zoom）。
+ *
+ * 必须「裁 + 放大」：
+ *   · libcimbar 的解码器要求动态码在输入图像里占到足够的像素（实测约 450px 以上
+ *     才稳定），否则一直返回 -3（找到码但解不出）。
+ *   · 裁剪本身**不改变**码的像素数，只有放大才会。实测同一个裁剪区域，
+ *     输出 562px 时解不出来、放大到 1024px 就能解出来。
+ * 所以这里裁完再按最近邻放大到工作分辨率（最多 2 倍，再往上插值换不回信息）。
  */
 function extract(rgba, width, height, zoom) {
   const src = rgba instanceof ArrayBuffer ? new Uint8Array(rgba) : rgba;
@@ -172,21 +193,30 @@ function extract(rgba, width, height, zoom) {
   const side = Math.max(64, Math.round(Math.min(width, height) * frac));
   const sx = Math.round((width - side) / 2);
   const sy = Math.round((height - side) / 2);
-  const stride = side * 4;
+  const out = Math.max(side, Math.min(WORK_SIZE, side * MAX_UPSCALE));
 
-  // 直接按行拷进 wasm 堆，省掉一次整帧拷贝
-  const img = ensure("img", side * side * 4);
+  // 直接按行拷进 wasm 堆，省掉一次整帧拷贝；同时做最近邻放大
+  const img = ensure("img", out * out * 4);
   const imgPtr = img.byteOffset;
-  for (let y = 0; y < side; y++) {
-    const s = ((sy + y) * width + sx) * 4;
-    img.set(src.subarray(s, s + stride), y * stride);
+  const cm = colIndexMap(side, out);
+  for (let y = 0; y < out; y++) {
+    const sRow = ((sy + Math.floor((y * side) / out)) * width + sx) * 4;
+    let d = y * out * 4;
+    for (let x = 0; x < out; x++) {
+      const s = sRow + cm[x];
+      img[d] = src[s];
+      img[d + 1] = src[s + 1];
+      img[d + 2] = src[s + 2];
+      img[d + 3] = src[s + 3];
+      d += 4;
+    }
   }
 
   const fb = ensure("fountain", Module._cimbard_get_bufsize());
   const fbPtr = fb.byteOffset;
   const fbLen = fb.byteLength;
 
-  const len = Module._cimbard_scan_extract_decode(imgPtr, side, side, FMT_RGBA, fbPtr, fbLen);
+  const len = Module._cimbard_scan_extract_decode(imgPtr, out, out, FMT_RGBA, fbPtr, fbLen);
   if (len <= 0) return { code: len };
   // 拷贝出来：wasm 内存随时可能被下一次调用覆盖
   const block = new Uint8Array(Module.HEAPU8.buffer, fbPtr, len).slice();

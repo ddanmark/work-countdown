@@ -17,11 +17,20 @@ const decoder = require("../../utils/cimbar/decoder.js");
 const MODE_ORDER = [68, 66, 67, 4]; // 先试 B（cimbar.org 发送端默认），再 Bu / Bm / 4C
 const MODE_NAMES = { 4: "4C", 8: "8C", 66: "Bu", 67: "Bm", 68: "B" };
 const PROBE_PER_MODE = 4; // 每个模式最多试几帧，没扫出东西就换下一个
-// 取景框档位：正方形边长 = 画面短边 × 该比例。越小等效变焦越大，覆盖更远的距离。
-const ZOOMS = [1, 0.7, 0.5];
+// 取景框档位：正方形边长 = 画面短边 × 该比例。越小等效变焦越大。
+// 覆盖范围很重要：码相对画面太小（离得远）和太大（离得太近、被裁掉）都会一直
+// 返回 -3，所以档位要能从「整块短边」一路收到「1/4 短边」。
+const ZOOMS = [1, 0.72, 0.52, 0.36, 0.25];
 const MIN_FRAME_GAP = 90; // 主线程解码，节流到最多约 11 帧/秒
 const STALL_FRAMES = 150; // 提取过但这么久没新数据 → 认为挪了手机，重新找档位
 const MAX_FILE_BYTES = 64 * 1024 * 1024;
+
+/** 变焦倍数，用于 UI 显示：档位 0.5 → ×2 */
+function zoomLabel(z) {
+  if (!z) return "自动";
+  if (z >= 1) return "×1";
+  return "×" + (1 / z).toFixed(1).replace(/\.0$/, "");
+}
 
 const DOC_TYPES = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf", "csv", "md"];
 
@@ -32,6 +41,7 @@ Page({
     frameSize: "large",
     flash: "off",
     modeText: "自动识别",
+    zoomText: "变焦 自动",
     status: "正在准备解码器…",
     bars: [],
     frameState: "",
@@ -46,6 +56,7 @@ Page({
     this.lockedMode = 0; // 0 = 自动识别中
     this.zoomIdx = 0;
     this.lockedZoom = 0; // 0 = 取景框档位还没锁定
+    this.manualZoom = 0; // 用户手动指定的档位，0 = 自动
     this.solved = false;
     this.listener = null;
     this.cameraReady = false;
@@ -55,7 +66,7 @@ Page({
     decoder
       .init()
       .then(() => {
-        this.setData({ status: "让动态码填满取景框（离近一点更清楚）" });
+        this.setData({ status: "让动态码刚好填满取景框（一直「解不出」就点上面的变焦）" });
         this.tryStartFrames();
       })
       .catch((e) => {
@@ -124,7 +135,7 @@ Page({
     this.lastFrameAt = now;
 
     const mode = this.lockedMode || MODE_ORDER[this.probeIdx % MODE_ORDER.length];
-    const zoom = this.lockedZoom || ZOOMS[this.zoomIdx % ZOOMS.length];
+    const zoom = this.manualZoom || this.lockedZoom || ZOOMS[this.zoomIdx % ZOOMS.length];
 
     let r;
     try {
@@ -147,7 +158,7 @@ Page({
           this.probeIdx++;
         }
       }
-      if (!this.lockedZoom) this.zoomIdx++;
+      if (!this.lockedZoom && !this.manualZoom) this.zoomIdx++;
       this.updateDiag();
       return;
     }
@@ -161,7 +172,10 @@ Page({
       this.probeCount = 0;
       this.setData({ modeText: "已识别：" + (MODE_NAMES[mode] || mode) });
     }
-    if (!this.lockedZoom) this.lockedZoom = zoom;
+    if (!this.lockedZoom && !this.manualZoom) {
+      this.lockedZoom = zoom;
+      this.setData({ zoomText: "变焦 " + zoomLabel(zoom) });
+    }
     this.updateDiag();
 
     if (r.file) {
@@ -178,12 +192,29 @@ Page({
   /** 调试用读数：扫不出来时靠它区分「没取到帧 / 没找到码 / 找到了解不出」 */
   updateDiag() {
     const s = this.stats;
-    const zoom = this.lockedZoom || ZOOMS[this.zoomIdx % ZOOMS.length];
+    const zoom = this.manualZoom || this.lockedZoom || ZOOMS[this.zoomIdx % ZOOMS.length];
     const diag =
       "帧 " + s.frames + " · 找到码 " + (s.nodata + s.extract + s.failed) +
       " · 提取 " + s.extract + " · 解不出 " + s.failed +
-      " · 变焦 " + Math.round(zoom * 100) + "%";
+      " · 变焦 " + zoomLabel(zoom);
     if (diag !== this.data.diag) this.setData({ diag: diag });
+  },
+
+  /** 点变焦按钮：自动 → ×1 → ×1.4 → ×2 → ×2.8 → ×4 → 自动 */
+  cycleZoom() {
+    const order = [0].concat(ZOOMS);
+    const cur = this.manualZoom || 0;
+    const i = order.indexOf(cur);
+    this.manualZoom = order[(i + 1) % order.length];
+    this.lockedZoom = 0; // 手动改档位后取消自动锁定
+    this.zoomIdx = 0;
+    this.recentDecodeAt = 0;
+    this.setData({
+      zoomText: "变焦 " + zoomLabel(this.manualZoom),
+      bars: [],
+      frameState: "",
+    });
+    this.updateDiag();
   },
 
   renderProgress(report) {
@@ -202,7 +233,7 @@ Page({
     this.setData({ bars: bars, status: status, frameState: "hit" });
 
     // 提取过但很久没有新数据 → 大概率是用户挪了手机，换回自动找档位
-    if (this.stats.extract > 0 && this.recentDecodeAt > 0 &&
+    if (!this.manualZoom && this.stats.extract > 0 && this.recentDecodeAt > 0 &&
         this.frames - this.recentDecodeAt > STALL_FRAMES) {
       this.lockedZoom = 0;
       this.zoomIdx++;
@@ -302,9 +333,10 @@ Page({
         }
         // 手动改模式后也把取景框档位放回自动，重新找一遍
         this.lockedZoom = 0;
+        this.manualZoom = 0;
         this.zoomIdx = 0;
         this.recentDecodeAt = 0;
-        this.setData({ bars: [], frameState: "" });
+        this.setData({ bars: [], frameState: "", zoomText: "变焦 自动" });
       },
       fail: () => {},
     });

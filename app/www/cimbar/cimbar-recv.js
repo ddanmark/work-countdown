@@ -28,10 +28,14 @@
   var ERR_SIZE = 1024;
   var AUTO_MODES = [66, 68, 67, 4]; // Bu / B / Bm / 4C，自动识别时逐帧轮换
   var MODE_NAMES = { 4: "4C", 8: "8C", 66: "Bu", 67: "Bm", 68: "B" };
-  // 取景框档位：正方形边长 = 画面短边 × 该比例。越小的档位等效变焦越大。
-  // 1.0 只裁掉长边（竖屏时就已经比整帧好），0.7 / 0.5 分别覆盖更远的距离。
-  var ZOOMS = [1, 0.7, 0.5];
+  // 取景框档位：正方形边长 = 画面短边 × 该比例。越小等效变焦越大。
+  // 覆盖范围很重要：码相对画面太小（离得远）和太大（离得太近、被裁掉）都会一直
+  // 返回 -3，所以档位要能从「整块短边」一路收到「1/4 短边」。
+  var ZOOMS = [1, 0.72, 0.52, 0.36, 0.25];
   var MAX_WORKERS = 4;
+  // 裁剪后要放大到的边长上限，以及允许的最大放大倍数（超过 2 倍插值也换不回信息）
+  var WORK_SIZE = 1024;
+  var MAX_UPSCALE = 2;
   // 提取成功过、但连续这么多帧没有新数据 → 认为用户挪动了手机，重新找取景框档位
   var STALL_FRAMES = 150;
 
@@ -41,6 +45,7 @@
   var workers = [];
   var workerReady = []; // 每个 Worker 的 wasm 是否就绪
   var workerBusy = []; // 每个 Worker 是否正在处理一帧
+  var workerZoom = []; // 每个 Worker 当前这一帧用的取景框档位
   var nextWorker = 0;
   var stream = null;
   var running = false;
@@ -50,6 +55,7 @@
   var mode = 0; // 0 = 自动识别
   var zoomIdx = 0;
   var lockedZoom = 0; // 0 = 还没锁定
+  var manualZoom = 0; // 用户手动指定的档位，0 = 自动
   var solved = false;
   var captureCanvas = null;
   var captureCtx = null;
@@ -227,8 +233,11 @@
     if (data.buff.length > 0) {
       // 扫出东西了：锁定模式（切模式会重置喷泉码状态，不能来回切）
       if (!mode) setMode(data.mode);
-      // 同时也锁定当前取景框档位：这一档能解出来，就别再换
-      if (!lockedZoom) lockedZoom = ZOOMS[zoomIdx];
+      // 同时也锁定这一帧用的取景框档位：这一档能解出来，就别再换
+      if (!lockedZoom && !manualZoom) {
+        lockedZoom = workerZoom[wid] || ZOOMS[0];
+        updateZoomUi();
+      }
       sink.onDecode(data.buff);
     }
     updateDiag();
@@ -333,6 +342,8 @@
     if (!frame) return;
 
     workerBusy[pick] = true;
+    var z = currentZoom();
+    workerZoom[pick] = z;
     stats.sent++;
     workers[pick].postMessage(
       {
@@ -345,12 +356,38 @@
       },
       [frame.pixels.buffer]
     );
+    // 自动找档位：每帧换一档，直到某档解出东西（或用户手动指定）
+    if (!lockedZoom && !manualZoom) zoomIdx++;
     updateVisualState();
   }
 
-  /** 当前该用哪一档取景框：锁定了就一直用，没锁定就轮流试 */
+  /** 当前该用哪一档取景框：手动指定 > 锁定 > 自动轮流试 */
   function currentZoom() {
+    if (manualZoom) return manualZoom;
     return lockedZoom || ZOOMS[zoomIdx % ZOOMS.length];
+  }
+
+  /** 变焦倍数，用于 UI 显示：档位 0.5 → ×2 */
+  function zoomLabel(z) {
+    if (!z) return "自动";
+    if (z >= 1) return "×1";
+    return "×" + (1 / z).toFixed(1).replace(/\.0$/, "");
+  }
+
+  /** 点变焦按钮：自动 → ×1 → ×1.4 → ×2 → ×2.8 → ×4 → 自动 */
+  function cycleZoom() {
+    var order = [0].concat(ZOOMS);
+    var cur = manualZoom || 0;
+    var i = order.indexOf(cur);
+    manualZoom = order[(i + 1) % order.length];
+    lockedZoom = 0; // 手动改档位后取消自动锁定
+    zoomIdx = 0;
+    updateZoomUi();
+    updateDiag();
+  }
+
+  function updateZoomUi() {
+    if (el && el.zoom) el.zoom.textContent = "变焦 " + zoomLabel(manualZoom || lockedZoom);
   }
 
   /** 取景框的裁剪矩形：画面中央的正方形，边长 = 短边 × 档位 */
@@ -365,11 +402,23 @@
   }
 
   /**
-   * 取一帧：从摄像头画面中央裁一个正方形（边长 = 短边 × 档位），按原分辨率喂给解码器。
+   * 裁剪之后要放大到的边长。
    *
-   * 为什么必须裁：libcimbar 的解码器要求动态码在输入图像里占够宽度比例，
-   * 整帧喂进去时码太小会一直返回 -3（找到码但解不出）。裁剪不增加像素，
-   * 但会让码在输入里占的比例变大，解码器就能解出来了。
+   * 这一步是真正的关键：裁剪本身不改变动态码的像素数，只有**放大**才会。
+   * 实测同一个裁剪区域，输出 562px 时解不出来、放大到 1024px 就能解出来。
+   * 上限 2 倍是为了别把码插值糊掉（再往上插值也换不回信息）。
+   */
+  function workSize(side) {
+    return Math.min(WORK_SIZE, side * MAX_UPSCALE);
+  }
+
+  /**
+   * 取一帧：从摄像头画面中央裁一个正方形（边长 = 短边 × 档位），放大到工作分辨率后
+   * 喂给解码器。
+   *
+   * 为什么必须裁 + 放大：libcimbar 的解码器要求动态码在输入图像里占到足够的像素
+   * （实测约 450px 以上才稳定），否则一直返回 -3（找到码但解不出）。
+   * 手机竖屏拍横屏显示器时整帧喂进去码只有 200~300px，永远解不出来。
    */
   function grabFrame() {
     var v = el.video;
@@ -377,17 +426,21 @@
     if (!vw || !vh) return null;
 
     var r = cropRect(vw, vh, currentZoom());
+    var out = Math.round(workSize(r.side));
     if (!captureCanvas) {
       captureCanvas = document.createElement("canvas");
       captureCtx = captureCanvas.getContext("2d", { willReadFrequently: true });
     }
-    if (captureCanvas.width !== r.side || captureCanvas.height !== r.side) {
-      captureCanvas.width = r.side;
-      captureCanvas.height = r.side;
+    if (captureCanvas.width !== out || captureCanvas.height !== out) {
+      captureCanvas.width = out;
+      captureCanvas.height = out;
     }
-    captureCtx.drawImage(v, r.sx, r.sy, r.side, r.side, 0, 0, r.side, r.side);
-    var img = captureCtx.getImageData(0, 0, r.side, r.side);
-    return { pixels: new Uint8Array(img.data.buffer), width: r.side, height: r.side };
+    captureCtx.imageSmoothingEnabled = true;
+    captureCtx.imageSmoothingQuality = "high";
+    // 源矩形 → 目标整块：画布自己完成缩放
+    captureCtx.drawImage(v, r.sx, r.sy, r.side, r.side, 0, 0, out, out);
+    var img = captureCtx.getImageData(0, 0, out, out);
+    return { pixels: new Uint8Array(img.data.buffer), width: out, height: out };
   }
 
   function stopCamera() {
@@ -417,7 +470,7 @@
     el.diag.textContent =
       "帧 " + stats.frames + " · 送解 " + stats.sent + " · 找到码 " + (stats.nodata + stats.extract + stats.failed) +
       " · 提取 " + stats.extract + " · 解不出 " + stats.failed +
-      " · 变焦 " + Math.round(currentZoom() * 100) + "%" +
+      " · 变焦 " + zoomLabel(currentZoom()) +
       " · 线程 " + readyWorkerCount() + "/" + workers.length;
   }
 
@@ -464,9 +517,11 @@
     mode = 0;
     zoomIdx = 0;
     lockedZoom = 0;
+    manualZoom = 0;
     if (el.mode) el.mode.textContent = "自动识别";
     if (el.bars) el.bars.innerHTML = "";
-    setStatus("让动态码填满取景框（离近一点更清楚）");
+    updateZoomUi();
+    setStatus("让动态码刚好填满取景框（离近一点；一直「解不出」就点上面的变焦）");
     updateDiag();
   }
 
@@ -548,9 +603,11 @@
       diag: document.getElementById("cimbarDiag"),
       bars: document.getElementById("cimbarBars"),
       mode: document.getElementById("cimbarMode"),
+      zoom: document.getElementById("cimbarZoom"),
       close: document.getElementById("cimbarClose"),
     };
     if (el.close) el.close.addEventListener("click", close);
+    if (el.zoom) el.zoom.addEventListener("click", cycleZoom);
   }
 
   function open() {
@@ -619,17 +676,24 @@
       }
       return ensureModule().then(function (m) { installSaver(); return m; });
     },
-    /** 供测试用：按生产逻辑裁剪一帧像素（走 cropRect，与 grabFrame 同一套几何） */
+    /** 供测试用：按生产逻辑裁剪并放大一帧像素（与 grabFrame 同一套几何与工作分辨率） */
     _crop: function (pixels, width, height, zoom) {
       var r = cropRect(width, height, zoom);
       var src = pixels instanceof Uint8Array ? pixels : new Uint8Array(pixels);
-      var out = new Uint8Array(r.side * r.side * 4);
-      var stride = r.side * 4;
-      for (var y = 0; y < r.side; y++) {
-        var s = ((r.sy + y) * width + r.sx) * 4;
-        out.set(src.subarray(s, s + stride), y * stride);
+      var side = r.side;
+      var out = Math.round(workSize(side));
+      var dst = new Uint8Array(out * out * 4);
+      var colMap = new Int32Array(out);
+      for (var x = 0; x < out; x++) colMap[x] = Math.floor((x * side) / out) * 4;
+      for (var y = 0; y < out; y++) {
+        var sRow = ((r.sy + Math.floor((y * side) / out)) * width + r.sx) * 4;
+        var dRow = y * out * 4;
+        for (var i = 0; i < out; i++) {
+          var s = sRow + colMap[i], d = dRow + i * 4;
+          dst[d] = src[s]; dst[d + 1] = src[s + 1]; dst[d + 2] = src[s + 2]; dst[d + 3] = src[s + 3];
+        }
       }
-      return { pixels: out, width: r.side, height: r.side };
+      return { pixels: dst, width: out, height: out };
     },
     _stats: function () { return stats; },
   };
