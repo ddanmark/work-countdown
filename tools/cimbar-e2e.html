@@ -299,6 +299,7 @@
   var mpFile = null, mpName = null;
   var lastReport = "";
   var codes = {}; // 提取结果分布：0=没找到码, -3=找到了但解不出, >0=提取到字节
+  var feedMs = 0; // 小程序端解码器每帧耗时累计（含裁剪/放大/解码）
   var MAXF = parseInt(Q.get("max") || "2000", 10);
   for (var f = 0; f < MAXF; f++) {
       if (ENGINE === "mp" ? mpFile : webFile) break;
@@ -333,7 +334,11 @@
         }
       }
       if (ENGINE === "mp") {
-        var r = mp.feed(feedPixels.slice(), feedW, feedH, MODE, ZOOM);
+        // 切片放计时外：生产里 frame.data 本来就是新缓冲，不需要再拷一份
+        var arg = feedPixels.slice();
+        var t0 = performance.now();
+        var r = mp.feed(arg, feedW, feedH, MODE, ZOOM);
+        feedMs += performance.now() - t0;
         codes[r.code > 0 ? ">0" : String(r.code)] = (codes[r.code > 0 ? ">0" : String(r.code)] || 0) + 1;
         if (r.file) {
           mpFile = new Uint8Array(r.file.buffer);
@@ -368,6 +373,7 @@
     var savedName = ENGINE === "mp" ? mpName : webName;
     log("共投喂 " + R.frames + " 帧");
     if (ENGINE === "mp") {
+      log("小程序解码器每帧耗时：" + (feedMs / Math.max(1, R.frames)).toFixed(1) + " ms（含裁剪/放大/解码）");
       log("提取结果分布：" + Object.keys(codes).map(function (k) {
         return k + " × " + codes[k] + (k === "0" ? "（画面里没找到码）" : k === "-3" ? "（找到码但解不出）" : "（提取到字节）");
       }).join("，"));
